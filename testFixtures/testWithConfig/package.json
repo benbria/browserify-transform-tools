@@ -1,0 +1,6 @@
+{
+    "unblueify": {
+        "color": "red"
+    },
+    "unyellowify": "./unyellowify.js"
+}

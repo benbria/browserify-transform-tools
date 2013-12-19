@@ -1,0 +1,31 @@
+{
+  "name": "browserify-transform-tools",
+  "version": "1.0.0",
+  "description": "Utilities for writing browserify transforms.",
+  "main": "./lib/transformTools.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/benbria/includify.git"
+  },
+  "keywords": [
+    "browserify",
+    "fs",
+    "include"
+  ],
+  "author": "Jason Walton (https://github.com/jwalton)",
+  "contributors": [
+    "Jason Walton <dev@lucid.thedreaming.org> (https://github.com/jwalton)"
+  ],
+  "license": "MIT",
+  "directories": {
+    "lib": "./lib"
+  },
+  "dependencies": {
+    "through": "~2.3.4",
+    "falafel": ">0.2.1"
+  },
+  "devDependencies": {
+    "coffee-script": "1.6.3",
+    "mocha": "1.15.1"
+  }
+}
