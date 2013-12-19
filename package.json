@@ -5,12 +5,12 @@
   "main": "./lib/transformTools.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/benbria/includify.git"
+    "url": "https://github.com/benbria/browserify-transform-tools.git"
   },
   "keywords": [
     "browserify",
-    "fs",
-    "include"
+    "transform",
+    "utilities"
   ],
   "author": "Jason Walton (https://github.com/jwalton)",
   "contributors": [
