@@ -22,10 +22,11 @@
   },
   "dependencies": {
     "through": "~2.3.4",
-    "falafel": ">0.2.1"
+    "falafel": ">0.2.1",
+    "find-parent-dir": "~0.1.0"
   },
   "devDependencies": {
     "coffee-script": "1.6.3",
-    "mocha": "1.15.1"
+    "mocha": "1.15.0"
   }
 }

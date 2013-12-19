@@ -7,9 +7,219 @@ fs      = require 'fs'
 
 through   = require 'through'
 falafel   = require 'falafel'
+parentDir = require 'find-parent-dir'
 
 endsWith = (str, suffix) ->
     return str.indexOf(suffix, str.length - suffix.length) != -1
+
+# Returned true if the given file should not be procesed, given the specified options.
+skipFile = (file, options) ->
+    answer = false
+
+    if options.excludeExtensions
+        for extension in options.excludeExtensions
+            if endsWith(file, extension) then answer = true
+
+    if options.includeExtensions
+        includeThisFile = false
+        for extension in options.includeExtensions
+            if endsWith(file, extension)
+                includeThisFile = true
+                break
+        if !includeThisFile then answer = true
+
+    return answer
+
+# Create a new Browserify transform which reads and returns a string.
+#
+# Browserify transforms work on streams.  This is all well and good, until you want to call
+# a library like "falafel" which doesn't work with streams.
+#
+# Suppose you are writing a transform called "redify" which replaces all occurances of "blue"
+# with "red":
+#
+#     options = {}
+#     module.exports = makeStringTransform "redify", options, (contents, transformOptions, done) ->
+#         done null, contents.replace(/blue/g, "red")
+#
+# Parameters:
+# * `transformFn(contents, transformOptions, done)` - Function which is called to
+#   do the transform.  `contents` are the contents of the file.  `transformOptions.file` is the
+#   name of the file (as would be passed to a normal browserify transform.)
+#   `transformOptions.config` is the configuration for the transform (see
+#   `loadTransformConfig` below for details on where this comes from.)  `done(err, transformed)` is
+#   a callback which must be called, passing the a string with the transformed contents of the
+#   file.
+# * `options.excludeExtensions` - A list of extensions which will not be processed.  e.g.
+#   "['.coffee', '.jade']"
+# * `options.includeExtensions` - A list of extensions to process.  If this options is not
+#   specified, then all extensions will be processed.  If this option is specified, then
+#   any file with an extension not in this list will skipped.
+#
+exports.makeStringTransform = (transformName, options={}, transformFn) ->
+    if !transformFn?
+        transformFn = options
+        options = {}
+
+    (file) ->
+        if skipFile file, options then return through()
+
+        # Read the file contents into `content`
+        content = ''
+        write = (buf) -> content += buf
+
+        # Called when we're done reading file contents
+        end = ->
+            handleError = (error) =>
+                if error instanceof Error and error.message
+                    error.message += " (while processing #{file})"
+                else
+                    error = new Error("#{error} (while processing #{file})")
+                @emit 'error', error
+
+            exports.loadTransformConfig transformName, file, (err, config) =>
+                return handleError err if err
+
+                try
+                    transformFn content, {file, config}, (err, transformed) =>
+                        return handleError err if err
+                        @queue String(transformed)
+                        @queue null
+                catch err
+                    handleError err
+
+        return through write, end
+
+# Create a new Browserify transform based on [falafel](https://github.com/substack/node-falafel).
+#
+# Parameters:
+# * `transformFn(node, transformOptions, done)` is called once for each falafel node.  transformFn
+#   is free to update the falafel node directly; any value returned via `done(err)` is ignored.
+# * `options.falafelOptions` are options to pass directly to Falafel.
+# * `transformName`, `options.excludeExtensions`, `options.includeExtensions, and `transformOptions`
+#   are the same as for `makeStringTransform()`.
+#
+exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
+    if !transformFn?
+        transformFn = options
+        options = {}
+
+    falafelOptions = options.falafelOptions ? {}
+
+    return exports.makeStringTransform transformName, options, (content, transformOptions, done) ->
+        transformErr = null
+        pending = 1 # We'll decrement this to zero at the end to prevent premature call of `done`.
+        transformed = null
+
+        transformCb = (err) ->
+            if err and !transformErr
+                transformErr = err
+                done err
+
+            # Stop further processing if an error has occurred
+            return if transformErr
+
+            pending--
+            if pending is 0
+                done null, transformed
+
+        transformed = falafel content, falafelOptions, (node) ->
+            pending++
+            try
+                transformFn node, transformOptions, transformCb
+            catch err
+                transformCb err
+
+        # call transformCb one more time to decrement pending to 0.
+        transformCb transformErr, transformed
+
+# Create a new Browserify transform that modifies requires() calls.
+#
+# The resulting transform will call `transformFn(requireArgs, {file, config})` for every requires
+# in a file.  transformFn should return a string which will replace the entire `require` call.
+#
+# Exmaple:
+#
+#     makeRequireTransform "xify", (requireArgs) ->
+#         return "require(x" + requireArgs[0] + ")"
+#
+# would transform calls like `require("foo")` into `require("xfoo")`.
+#
+# `transformName`, `options`, `file`, and `config` are the same as for `makeStringTransform()`.
+#
+
+# exports.makeRequireTransform = (transformName, options={}, transformFn) ->
+#     return makeFalafelTransform transformName, options, (node, transformOptions) ->
+#         if (node.type is 'CallExpression' and
+#         node.callee.type is 'Identifier' and
+#         node.callee.name is 'require')
+#                 # Parse arguemnts to calls to `require`.
+#                 args = (arg.source() for arg in node.arguments)
+#                 node.update transformFn(args, transformOptions)
+
+configCache = {}
+
+getConfigFromCache = (transformName, packageDir) ->
+    cacheKey = "#{transformName}:#{packageDir}"
+    return if configCache[cacheKey]? then configCache[cacheKey] else null
+
+storeConfigInCache = (transformName, packageDir, config) ->
+    cacheKey = "#{transformName}:#{packageDir}"
+    configCache[cacheKey] = config
+
+loadJsonAsync = (filename, done) ->
+    fs.readFile filename, "utf-8", (err, content) ->
+        return done err if err
+        try
+            done null, JSON.parse(content)
+        catch err
+            done err
+
+# Load configuration for a transform.
+#
+# This will look for a key in package.json with configuration for your module.  Suppose you
+# write a transform called "soupify".  In your transform, you'd do something like:
+#
+#     browserifyTransformTools.loadTransformConfig "soupify",
+#         "/Users/jwalton/project/foo.js", (err, config) ->
+#             ....
+#
+# This will find the "soupify" key in package.json.  If the value of the key is an object,
+# this will return that object.  If the value of the key is a string, this will load the
+# JSON or js file referenced by the string, and return its contents instead.
+#
+# Inspired by the [browserify-shim](https://github.com/thlorenz/browserify-shim) configuration
+# loader.
+#
+exports.loadTransformConfig = (transformName, file, done) ->
+    dirname = path.dirname file
+    parentDir dirname, 'package.json', (err, packageDir) ->
+        return done err if err
+
+        config = getConfigFromCache transformName, packageDir
+        if config
+            done null, config
+
+        else if packageDir?
+            packageFile = path.join(packageDir, 'package.json');
+            loadJsonAsync packageFile, (err, pkg) ->
+                return done err if err
+                config = pkg[transformName]
+
+                if config? and (typeof config is "string")
+                    configFile = path.resolve packageDir, config
+                    try
+                        config = require configFile
+                    catch err
+                        return done err
+
+                storeConfigInCache transformName, packageDir, config
+                done null, config
+
+        else
+            # Couldn't find configuration
+            done null, null
+
 
 # Find the first parent directory of `startDir` which contains a file named `fileToFind`.
 parentDirSync = (startDir, fileToFind) ->
@@ -31,152 +241,30 @@ parentDirSync = (startDir, fileToFind) ->
 
     return answer
 
-# Create a new Browserify transform which reads and returns a string.
-#
-# Browserify transforms work on streams.  This is all well and good, until you want to call
-# a library like "falafel" which doesn't work with streams.
-#
-# Suppose you are writing a transform called "redify" which replaces all occurances of "blue"
-# with "red":
-#
-#     options = {}
-#     module.exports = makeStringTransform "redify", options, (contents) ->
-#         return contents.replace(/blue/g, "red")
-#
-# Parameters:
-# * `transformFn(contents, {file, config})` - Function which is called to do the transform.
-#   `contents` are the contents of the file.  `file` is the name of the file (as would be
-#   passed to a normal browserify transform.)  `config` is the configuration for the
-#   `redify` transform (see `loadTransformConfigSync` below for details on where this comes from.)
-# * `options.excludeExtensions` - A list of extensions which will not be processed.  e.g.
-#   "['.coffee', '.jade']"
-# * `options.includeExtensions` - A list of extensions to process.  If this options is not
-#   specified, then all extensions will be processed.  If this option is specified, then
-#   any file with an extension not in this list will skipped.
-#
-exports.makeStringTransform = (transformName, options={}, transformFn) ->
-    if !transformFn?
-        transformFn = options
-        options = {}
+# Synchronous version of `loadTransformConfig()`.
+exports.loadTransformConfigSync = (transformName, file) ->
+    config = null
 
-    (file) ->
-        if options.excludeExtensions
-            for extension in options.excludeExtensions
-                if endsWith(file, extension) then return through()
+    dirname = path.dirname file
+    packageDir = parentDirSync dirname, 'package.json'
 
-        if options.includeExtensions
-            includeThisFile = false
-            for extension in options.includeExtensions
-                if endsWith(file, extension)
-                    includeThisFile = true
-                    break
-            if !includeThisFile then return through()
+    config = getConfigFromCache transformName, packageDir
 
-        data = ''
-
-        # Read the file contents into `data`
-        write = (buf) -> data += buf
-
-        # Called when we're done reading dfile contents
-        end = ->
-            try
-                config = exports.loadTransformConfigSync transformName, file
-                output = transformFn data, {file, config}
-            catch err
-                @emit 'error', new Error(
-                    err.toString() + " (#{file})")
-
-            @queue String(output)
-            @queue null
-
-        return through write, end
-
-# Create a new Browserify transform based on [falafel](https://github.com/substack/node-falafel).
-#
-# The resulting transform will call `transformFn(node {file, config})` for every falafel node.
-# The return value of transformFn is ignored.
-#
-# `transformName`, `options`, `file`, and `config` are the same as for `makeStringTransform()`.
-#
-exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
-    if !transformFn?
-        transformFn = options
-        options = {}
-
-    return exports.makeStringTransform transformName, options, (content, transformOptions) ->
-        return falafel content, (node) ->
-            transformFn node, transformOptions
-
-# Create a new Browserify transform that modifies requires() calls.
-#
-# The resulting transform will call `transformFn(requireArgs, {file, config})` for every requires
-# in a file.  transformFn should return a string which will replace the entire `require` call.
-#
-# Exmaple:
-#
-#     makeRequireTransform "xify", (requireArgs) ->
-#         return "require(x" + requireArgs[0] + ")"
-#
-# would transform calls like `require("foo")` into `require("xfoo")`.
-#
-# `transformName`, `options`, `file`, and `config` are the same as for `makeStringTransform()`.
-#
-# exports.makeRequireTransform = (transformName, options={}, transformFn) ->
-#     return makeFalafelTransform transformName, options, (node, transformOptions) ->
-#         if (node.type is 'CallExpression' and
-#         node.callee.type is 'Identifier' and
-#         node.callee.name is 'require')
-#                 # Parse arguemnts to calls to `require`.
-#                 args = (arg.source() for arg in node.arguments)
-#                 node.update transformFn(args, transformOptions)
-
-
-readConfigFromPacakge = (transformName, packageDir) ->
-    answer = null
-
-    if packageDir?
+    if !config and packageDir?
         packageFile = path.join(packageDir, 'package.json');
         pkg = require packageFile
-        answer = pkg[transformName]
+        config = pkg[transformName]
 
-        if answer? and (typeof answer is "string")
-            configFile = path.resolve packageDir, answer
-            answer = require configFile
+        if config? and (typeof config is "string")
+            configFile = path.resolve packageDir, config
+            config = require configFile
 
-    return answer
+        storeConfigInCache transformName, packageDir, config
 
-configCache = {}
+    return config
 
-# Load configuration for a transform.
-#
-# This will look for a key in package.json with configuration for your module.  Suppose you
-# write a transform called "soupify".  In your transform, you'd do something like:
-#
-#     config = browserifyTransformTools.loadTransformConfigSync "soupify",
-#         "/Users/jwalton/project/foo.js"
-#
-# This will find the "soupify" key in package.json.  If the value of the key is an object,
-# this will return that object.  If the value of the key is a string, this will load the
-# JSON or js file referenced by the string, and return its contents instead.
-#
-# Note that `loadTransformConfigSync` will cache the configuration for the transfromName, so it
-# doesn't need to be looked up for each individual file.
-#
-# Inspired by the [browserify-shim](https://github.com/thlorenz/browserify-shim) configuration
-# loader.
-#
-exports.loadTransformConfigSync = (transformName, file) ->
-    answer = null
-
-    if transformName of configCache
-        answer = configCache[transformName]
-    else
-        dirname = path.dirname file
-        packageDir = parentDirSync dirname, 'package.json'
-        answer = readConfigFromPacakge transformName, packageDir
-        configCache[transformName] = answer
-
-    return answer
+exports.clearConfigCache = ->
+    configCache = {}
 
 # Runs a Browserify-style transform on the given file.
 #
@@ -199,9 +287,10 @@ exports.runTransform = (transform, file, options={}, done) ->
         throughStream.on "data", (d) ->
             data += d
         throughStream.on "end", ->
-            done err, data
+            if !err then done null, data
         throughStream.on "error", (e) ->
             err = e
+            done err
 
         throughStream.write content
         throughStream.end()
