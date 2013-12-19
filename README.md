@@ -16,14 +16,16 @@ Suppose you are writing a transform, and you want to load some configuration.  I
 var transformTools = require('browserify-transform-tools');
 
 module.exports = function(file) {
-    var config = transformTools.loadTransformConfigSync('myTransform', file);
+    var configData = transformTools.loadTransformConfigSync('myTransform', file);
+    var config = configData.config;
+    var configDir = configData.configDir;
     ...
 };
 ```
 
-`loadTransformConfigSync()` will search the parent directory of `file` and its ancestors to find a `package.json` file.  Once it finds one, it will look for a key called 'myTransform'.  If this key is for a JSON object, then `loadTransformConfigSync()` will return the object.  If this key is for a string, then `loadTransformConfigSync()` will try to load the JSON or JS file the string represents and will return that instead.  For example, if package.json contains `{"myTransform": "./myTransform.json"}`, then the contents of "myTransform.json" will be returned.
+`loadTransformConfigSync()` will search the parent directory of `file` and its ancestors to find a `package.json` file.  Once it finds one, it will look for a key called 'myTransform'.  If this key is for a JSON object, then `loadTransformConfigSync()` will return the object.  If this key is for a string, then `loadTransformConfigSync()` will try to load the JSON or JS file the string represents and will return that instead.  For example, if package.json contains `{"myTransform": "./myTransform.json"}`, then the contents of "myTransform.json" will be returned.  The function returns a `{config, configDir}` object where `config` is the loaded data, and `configDir` is the directory which contained the file that data was loaded from (handy for resolving relative path names.)
 
-There is an async version of this function, as well, called `loadTransformConfig()`.
+There is an async version of this function, as well, called `loadTransformConfig(transformName, file, cb)`, which calls `cb(err, config, configDir)`.
 
 Creating a String Transform
 ===========================
@@ -48,7 +50,8 @@ Parameters:
   do the transform.  `contents` are the contents of the file.  `transformOptions.file` is the
   name of the file (as would be passed to a normal browserify transform.)
   `transformOptions.config` is the configuration for the transform (see
-  `loadTransformConfig` above for details on where this comes from.)  `done(err, transformed)` is
+  `loadTransformConfig` above for details on where this comes from.)  `transformOptions.configDir`
+  is the directory the configuration was loaded from.  `done(err, transformed)` is
   a callback which must be called, passing the a string with the transformed contents of the
   file.
 

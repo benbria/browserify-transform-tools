@@ -2,5 +2,5 @@
     "unblueify": {
         "color": "red"
     },
-    "unyellowify": "./unyellowify.js"
+    "unyellowify": "./yellow/unyellowify.js"
 }
