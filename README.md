@@ -77,6 +77,29 @@ module.exports = transformTools.makeFalafelTransform("array-fnify", options,
 
 Options passed to `makeFalafelTransform()` are the same as for `makeStringTransform()`, as are the options passed to the transform function.  You can additionally pass a `options.falafelOptions` to `makeFalafelTransform` - this object will be passed as an options object directly to falafel.
 
+Creating a Require Transform
+============================
+
+Many transforms are focused on transforming `require()` calls.  browserify-transform-tools has a solution for this:
+
+```JavaScript
+transform = transformTools.makeRequireTransform("requireTransform",
+    {evaluateArguments: true},
+    function(args, opts, cb) {
+        if (args[0] === "foo") {
+            return cb(null, "require('bar')");
+        } else {
+            return cb();
+        }
+    });
+```
+
+This will take all calls to `require("foo")` and transform them to `require('bar')`.  Note that makeRequireTransform can parse many simple expressions, so the above would succesfully parse `require("f" + "oo")`, for example.  Any expression involving core JavaScript, `__filename`, `__dirname`, `path`, and `join` (where join is an alias for `path.join`) can be parsed.  Setting the `evaluateArguments` option to false will disable this behavior, in which case the source code for everything inside the ()s will be returned.
+
+Note that `makeRequireTransform` expects your function to return the complete `require(...)` call.  This makes it possible to write require transforms which will, for example, inline resources.
+
+Again, all other options you can pass to `makeStringTransform` are valid here, too.
+
 Running a Transform
 ===================
 If you want to unit test your transform, then `runTransform()` is for you:
@@ -91,3 +114,11 @@ transformTools.runTransform(myTransform, dummyJsFile, {content: content},
     }
 );
 ```
+
+Thanks
+======
+Some of this was heavily inspired by:
+
+* [ForbesLindesay](https://github.com/ForbesLindesay)'s [rfileify](https://github.com/ForbesLindesay/rfileify)
+* [thlorenz](https://github.com/thlorenz)'s [browserify-shim](https://github.com/thlorenz/browserify-shim)
+

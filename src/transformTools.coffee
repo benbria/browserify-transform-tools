@@ -1,7 +1,5 @@
 # Framework for building Falafel based transforms for Browserify.
 
-# Based loosely on https://github.com/quarterto/rfolderify
-
 path    = require 'path'
 fs      = require 'fs'
 
@@ -96,7 +94,7 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
 # * `transformFn(node, transformOptions, done)` is called once for each falafel node.  transformFn
 #   is free to update the falafel node directly; any value returned via `done(err)` is ignored.
 # * `options.falafelOptions` are options to pass directly to Falafel.
-# * `transformName`, `options.excludeExtensions`, `options.includeExtensions, and `transformOptions`
+# * `transformName`, `options.excludeExtensions`, `options.includeExtensions`, and `transformOptions`
 #   are the same as for `makeStringTransform()`.
 #
 exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
@@ -135,28 +133,61 @@ exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
 
 # Create a new Browserify transform that modifies requires() calls.
 #
-# The resulting transform will call `transformFn(requireArgs, {file, config})` for every requires
-# in a file.  transformFn should return a string which will replace the entire `require` call.
+# The resulting transform will call `transformFn(requireArgs, tranformOptions, cb)` for every
+# requires in a file.  transformFn should call `cb(null, str)` with a string which will replace the
+# entire `require` call.
 #
 # Exmaple:
 #
-#     makeRequireTransform "xify", (requireArgs) ->
-#         return "require(x" + requireArgs[0] + ")"
+#     makeRequireTransform "xify", (requireArgs, cb) ->
+#         cb null, "require(x" + requireArgs[0] + ")"
 #
 # would transform calls like `require("foo")` into `require("xfoo")`.
 #
-# `transformName`, `options`, `file`, and `config` are the same as for `makeStringTransform()`.
+# `transformName`, `options.excludeExtensions`, `options.includeExtensions`, and
+# `tranformOptions` are the same as for `makeStringTransform()`.
 #
+# By default, makeRequireTransform will attempt to evaluate each "require" parameters.
+# makeRequireTransform can handle variabls `__filename`, `__dirname`, `path`, and `join` (where
+# `join` is treated as `path.join`) as well as any basic JS expressions.  If the argument is
+# too complicated to parse, then makeRequireTransform will return the source for the argument.
+# You can disable parsing by passing `options.evaluateArguments` as false.
+#
+exports.makeRequireTransform = (transformName, options={}, transformFn) ->
+    if !transformFn?
+        transformFn = options
+        options = {}
 
-# exports.makeRequireTransform = (transformName, options={}, transformFn) ->
-#     return makeFalafelTransform transformName, options, (node, transformOptions) ->
-#         if (node.type is 'CallExpression' and
-#         node.callee.type is 'Identifier' and
-#         node.callee.name is 'require')
-#                 # Parse arguemnts to calls to `require`.
-#                 args = (arg.source() for arg in node.arguments)
-#                 node.update transformFn(args, transformOptions)
+    evaluateArguments = options.evaluateArguments ? true
 
+    return exports.makeFalafelTransform transformName, options, (node, transformOptions, done) ->
+        if (node.type is 'CallExpression' and node.callee.type is 'Identifier' and
+        node.callee.name is 'require')
+            # Parse arguemnts to calls to `require`.
+            if evaluateArguments
+                # Based on https://github.com/ForbesLindesay/rfileify.
+                dirname = path.dirname(transformOptions.file)
+                varNames = ['__filename', '__dirname', 'path', 'join']
+                vars = [transformOptions.file, dirname, path, path.join]
+
+                args = node.arguments.map (arg) ->
+                    t = "return #{arg.source()}"
+                    try
+                        return Function(varNames, t).apply(null, vars)
+                    catch err
+                        # Can't evaluate the arguemnts.  Return the raw source.
+                        return arg.source()
+            else
+                args = (arg.source() for arg in node.arguments)
+
+            transformFn args, transformOptions, (err, transformed) ->
+                return done err if err
+                if transformed? then node.update(transformed)
+                done()
+        else
+            done()
+
+# Cache for transform configuration.
 configCache = {}
 
 getConfigFromCache = (transformName, packageDir) ->
