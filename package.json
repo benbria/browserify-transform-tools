@@ -1,6 +1,6 @@
 {
   "name": "browserify-transform-tools",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Utilities for writing browserify transforms.",
   "main": "./lib/transformTools.js",
   "repository": {
@@ -22,8 +22,7 @@
   },
   "dependencies": {
     "through": "~2.3.4",
-    "falafel": ">0.2.1",
-    "find-parent-dir": "~0.1.0"
+    "falafel": ">0.2.1"
   },
   "devDependencies": {
     "coffee-script": "1.6.3",

@@ -27,6 +27,8 @@ var configData = transformTools.loadTransformConfig('myTransform', file, functio
 
 There is a synchronous version of this function, as well, called `loadTransformConfigSync(transformName, file)`.
 
+Note that since configuration can be supplied in a .js file, the .js file can alter the configuration based on environment variables.
+
 Creating a String Transform
 ===========================
 Browserify transforms work on streams.  This is all well and good, until you want to call a library like "falafel" which doesn't work with streams.
