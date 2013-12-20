@@ -196,15 +196,46 @@ exports.makeRequireTransform = (transformName, options={}, transformFn) ->
         else
             done()
 
+# This is a cache where keys are directory names, and values are the closest ancestor directory
+# that contains a package.json
+packageJsonCache = {}
+
+findPackageJson = (dirname, done) ->
+    answer = packageJsonCache[dirname]
+    if answer
+        process.nextTick ->
+            done null, answer
+    else
+        parentDir.parentDir dirname, 'package.json', (err, packageDir) ->
+            return done err if err
+            if packageDir
+                packageFile = path.join(packageDir, 'package.json')
+            else
+                packageFile = null
+            packageJsonCache[dirname] = packageFile
+            done null, packageFile
+
+findPackageJsonSync = (dirname) ->
+    answer = packageJsonCache[dirname]
+    if !answer
+        packageDir = parentDir.parentDirSync dirname, 'package.json'
+        if packageDir
+            packageFile = path.join(packageDir, 'package.json')
+        else
+            packageFile = null
+        packageJsonCache[dirname] = packageFile
+        answer = packageFile
+    return answer
+
 # Cache for transform configuration.
 configCache = {}
 
-getConfigFromCache = (transformName, packageDir) ->
-    cacheKey = "#{transformName}:#{packageDir}"
+getConfigFromCache = (transformName, packageFile) ->
+    cacheKey = "#{transformName}:#{packageFile}"
     return if configCache[cacheKey]? then configCache[cacheKey] else null
 
-storeConfigInCache = (transformName, packageDir, configData) ->
-    cacheKey = "#{transformName}:#{packageDir}"
+storeConfigInCache = (transformName, packageFile, configData) ->
+    cacheKey = "#{transformName}:#{packageFile}"
 
     # Copy the config data, so we can set `cached` to true without affecting the object passed in.
     cachedConfigData = {}
@@ -221,6 +252,17 @@ loadJsonAsync = (filename, done) ->
             done null, JSON.parse(content)
         catch err
             done err
+
+# Load external configuration from a js or JSON file.
+# * `packageFile` is the package.json file which references the external configuration.
+# * `relativeConfigFile` is a file name relative to the package file directory.
+loadExternalConfig = (packageFile, relativeConfigFile) ->
+    # Load from an external file
+    packageDir = path.dirname packageFile
+    configFile = path.resolve packageDir, relativeConfigFile
+    configDir = path.dirname configFile
+    config = require configFile
+    return {config, configDir, configFile, packageFile, cached: false}
 
 # Load configuration for a transform.
 #
@@ -257,51 +299,47 @@ exports.loadTransformConfig = (transformName, file, done) ->
     dir = path.dirname file
 
     findConfig = (dirname) ->
-        parentDir.parentDir dirname, 'package.json', (err, packageDir) ->
+        findPackageJson dirname, (err, packageFile) ->
             return done err if err
 
-            if packageDir?
-                cachedConfig = getConfigFromCache transformName, packageDir
-                if cachedConfig
-                    done null, cachedConfig
-
+            if !packageFile?
+                # Couldn't find configuration
+                done null, null
+            else
+                configData = getConfigFromCache transformName, packageFile
+                if configData
+                    done null, configData
                 else
-                    packageFile = path.join(packageDir, 'package.json');
                     loadJsonAsync packageFile, (err, pkg) ->
                         return done err if err
 
                         config = pkg[transformName]
+                        packageDir = path.dirname packageFile
 
                         if !config?
-                            if !isRootDir(packageDir)
-                                # No configuration here.  Try again in the parent dir.
-                                parent = path.resolve packageDir, ".."
-                                findConfig parent
-                            else
+                            # Didn't find the config in the package file.  Try the parent dir.
+                            parent = path.resolve packageDir, ".."
+                            if parent == packageDir
+                                # Hit the root - we're done
                                 done null, null
+                            else
+                                findConfig parent
 
                         else
                             # Found some configuration
                             if typeof config is "string"
                                 # Load from an external file
-                                configFile = path.resolve packageDir, config
-                                configDir = path.dirname configFile
                                 try
-                                    config = require configFile
+                                    configData = loadExternalConfig packageFile, config
                                 catch err
                                     return done err
 
                             else
                                 configFile = packageFile
                                 configDir = packageDir
-
-                            configData = {config, configDir, configFile, packageFile, cached: false}
-                            storeConfigInCache transformName, packageDir, configData
+                                configData = {config, configDir, configFile, packageFile, cached: false}
+                            storeConfigInCache transformName, packageFile, configData
                             done null, configData
-
-            else
-                # Couldn't find configuration
-                done null, null
 
     findConfig dir
 
@@ -314,44 +352,46 @@ exports.loadTransformConfigSync = (transformName, file) ->
 
     done = false
     while !done
-        packageDir = parentDir.parentDirSync dirname, 'package.json'
+        packageFile = findPackageJsonSync dirname
 
-        if !packageDir?
+        if !packageFile?
+            # Couldn't find configuration
+            configData = null
             done = true
 
         else
-            configData = getConfigFromCache transformName, packageDir
+            configData = getConfigFromCache transformName, packageFile
 
             if configData
                 done = true
             else
-                packageFile = path.join(packageDir, 'package.json');
                 pkg = require packageFile
                 config = pkg[transformName]
+                packageDir = path.dirname packageFile
 
-                if config?
-                    if typeof config is "string"
-                        configFile = path.resolve packageDir, config
-                        configDir = path.dirname configFile
-                        config = require configFile
-                    else
-                        configFile = packageFile
-                        configDir = packageDir
-
-                    configData = {config, configDir, configFile, cached: false}
-                    storeConfigInCache transformName, packageDir, configData
-                    done = true
-
-                else
+                if !config?
                     # Didn't find the config in the package file.  Try the parent dir.
                     dirname = path.resolve packageDir, ".."
                     if dirname == packageDir
                         # Hit the root - we're done
                         done = true
+                else
+                    # Found some configuration
+                    if typeof config is "string"
+                        # Load from an external file
+                        configData = loadExternalConfig packageFile, config
+                    else
+                        configFile = packageFile
+                        configDir = packageDir
+                        configData = {config, configDir, configFile, packageFile, cached: false}
+
+                    storeConfigInCache transformName, packageFile, configData
+                    done = true
 
     return configData
 
 exports.clearConfigCache = ->
+    packageJsonCache = {}
     configCache = {}
 
 # Runs a Browserify-style transform on the given file.
