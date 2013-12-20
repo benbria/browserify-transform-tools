@@ -1,37 +1,21 @@
 This package contains tools for helping you write [transforms](https://github.com/substack/node-browserify#btransformtr) for [browserify](https://github.com/substack/node-browserify).
 
-Many different transforms perform certain basic functionality, such as turning the contents of a stream into a string, or loading configuration from package.json.  This package contains helper methods to perform these common tasks, so you don't have to write them over and over again.
+Many different transforms perform certain basic functionality, such as turning the contents of a stream into a string, or loading configuration from package.json.  This package contains helper methods to perform these common tasks, so you don't have to write them over and over again:
+
+* `makeStringTransform()` creates a transform which consumes and returns a string, instead of using a stream.
+* `makeFalafelTransform()` parses a JS file using [falafel](https://github.com/substack/node-falafel) and allows you to modify the code.
+* `makeRequireTransform()` passes you the contents of each `require()` call in each script, and allows you to rewrite the require statement.
+* All of the above will automatically search for transform configuration in package.json and pass it to you if available, but if you have a more complicated use case than the `make*Transform()` functions will support, then `loadTransformConfig()` will load configuration for you.
+* `runTransform()` can be used to unit test your shiny new transform.
 
 Installation
 ============
 
 Install with `npm install --save-dev browserify-transform-tools`.
 
-Loading Configuration
-=====================
-
-Suppose you are writing a transform, and you want to load some configuration.  In your index.js:
-
-```JavaScript
-var transformTools = require('browserify-transform-tools');
-
-var configData = transformTools.loadTransformConfig('myTransform', file, function(err, configData) {
-    var config = configData.config;
-    var configDir = configData.configDir;
-    ...
-});
-
-```
-
-`loadTransformConfig()` will search the parent directory of `file` and its ancestors to find a `package.json` file.  Once it finds one, it will look for a key called 'myTransform'.  If this key maps to a JSON object, then `loadTransformConfigSync()` will return the object.  If this key maps to a string, then `loadTransformConfigSync()` will try to load the JSON or JS file the string represents and will return that instead.  For example, if package.json contains `{"myTransform": "./myTransform.json"}`, then the contents of "myTransform.json" will be returned.  `configData.config` is the loaded data.  `configData.configDir` is the directory which contained the file that data was loaded from (handy for resolving relative path names.)  For other fields returned by `loadTransformConfigSync()`, see comments in [the source](https://github.com/benbria/browserify-transform-tools/blob/master/src/transformTools.coffee).
-
-There is a synchronous version of this function, as well, called `loadTransformConfigSync(transformName, file)`.
-
-Note that since configuration can be supplied in a .js file, the .js file can alter the configuration based on environment variables.
-
 Creating a String Transform
 ===========================
-Browserify transforms work on streams.  This is all well and good, until you want to call a library like "falafel" which doesn't work with streams.
+Browserify transforms work on streams.  This is all well and good, until you want to call a library like "falafel" which doesn't work with streams.  (If you're using falafel specifically, see below for `makeFalafelTransform`.)
 
 Suppose you are writing a transform called "unbluify" which replaces all occurances of "blue" with a color loaded from a configuration:
 
@@ -40,23 +24,55 @@ var options = {excludeExtensions: [".json"]};
 module.exports = transformTools.makeStringTransform("unbluify", options,
     function (content, transformOptions, done) {
         var file = transformOptions.file;
-        var configData = transformOptions.config;
-        var config = transformOptions.config;
+        if(!transformOptions.config) {
+            return done(new Error("Could not find unbluify configuration."));
+        }
 
-        done null, content.replace(/blue/g, config.newColor);
+        done null, content.replace(/blue/g, transformOptions.config.newColor);
     });
 ```
 
-Parameters:
+Notice that the color we replace "blue" with gets loaded from configuration.  The configuration
+can either be specified in the project's package.json:
+
+```JavaScript
+{
+    "name": "myProject",
+    "version": "1.0.0",
+    ...
+    "unbluify": {"newColor": "red"}
+}
+```
+
+Or alternatively you can set the "unbluify" key to be a js or JSON file:
+
+```JavaScript
+{
+    "unbluify": "unbluifyConfig.js"
+}
+```
+
+And then configuration will be loaded from that file:
+
+```JavaScript
+module.exports = {
+    newColor: "red"
+};
+```
+
+Note this means you can use enviroment variables to make changes to your configuration.
+
+Parameters for `makeStringTransform()`:
 
 * `transformFn(contents, transformOptions, done)` - Function which is called to
-  do the transform.  `contents` are the contents of the file.  `transformOptions.file` is the
-  name of the file (as would be passed to a normal browserify transform.)
-  `transformOptions.configData` is the configuration data for the transform (see
-  `loadTransformConfig` above for details on where this comes from.)  `transformOptions.config` is
-  a copy of `transformOptions.configData.config` for convenience.  `done(err, transformed)` is
+  do the transform.  `contents` are the contents of the file.  `done(err, transformed)` is
   a callback which must be called, passing the a string with the transformed contents of the
-  file.
+  file.  transformOptions consists of:
+
+  * `transformOptions.file` is the name of the file (as would be passed to a normal browserify transform.)
+  * `transformOptions.configData` is the configuration data for the transform (see
+  `loadTransformConfig` below for details on where this comes from.)
+  * `transformOptions.config` is a copy of `transformOptions.configData.config` for convenience.
 
 * `options.excludeExtensions` - A list of extensions which will not be processed.  e.g.
   "['.coffee', '.jade']"
@@ -81,7 +97,9 @@ module.exports = transformTools.makeFalafelTransform("array-fnify", options,
     });
 ```
 
-Options passed to `makeFalafelTransform()` are the same as for `makeStringTransform()`, as are the options passed to the transform function.  You can additionally pass a `options.falafelOptions` to `makeFalafelTransform` - this object will be passed as an options object directly to falafel.
+`makeFalafelTransform()` will be called once for every node in your JS file.  You can update the node.  Be sure to pass errors back via `done(err)`, and call `done()` when complete.
+
+Options passed to `makeFalafelTransform()` are the same as for `makeStringTransform()`, as are the transformOptions passed to the transform function.  You can additionally pass a `options.falafelOptions` to `makeFalafelTransform` - this object will be passed as an options object directly to falafel.
 
 Creating a Require Transform
 ============================
@@ -105,6 +123,28 @@ This will take all calls to `require("foo")` and transform them to `require('bar
 Note that `makeRequireTransform` expects your function to return the complete `require(...)` call.  This makes it possible to write require transforms which will, for example, inline resources.
 
 Again, all other options you can pass to `makeStringTransform` are valid here, too.
+
+Loading Configuration
+=====================
+
+All `make*Transform()` functions will automatically load configuration for your transform and make it available via `transformOptions.configData` and `transformOptions.config`.  If you are writing your own transform which doesn't use one of these functions, you can still use browserify-transform-tools to load configuration:
+
+```JavaScript
+var transformTools = require('browserify-transform-tools');
+
+var configData = transformTools.loadTransformConfig('myTransform', file, function(err, configData) {
+    var config = configData.config;
+    var configDir = configData.configDir;
+    ...
+});
+
+```
+
+`loadTransformConfig()` will search the parent directory of `file` and its ancestors to find a `package.json` file.  Once it finds one, it will look for a key called 'myTransform' (taken from the transformName passed into `loadTransformConfig()`.)  If this key maps to a JSON object, then `loadTransformConfigSync()` will return the object.  If this key maps to a string, then `loadTransformConfigSync()` will try to load the JSON or JS file the string represents and will return that instead.  For example, if package.json contains `{"myTransform": "./myTransform.json"}`, then the contents of "myTransform.json" will be returned.  `configData.config` is the loaded data.  `configData.configDir` is the directory which contained the file that data was loaded from (handy for resolving relative path names.)  For other fields returned by `loadTransformConfigSync()`, see comments in [the source](https://github.com/benbria/browserify-transform-tools/blob/master/src/transformTools.coffee).
+
+There is a synchronous version of this function, as well, called `loadTransformConfigSync(transformName, file)`.
+
+Note that since configuration can be supplied in a .js file, the .js file can alter the configuration based on environment variables.
 
 Running a Transform
 ===================
