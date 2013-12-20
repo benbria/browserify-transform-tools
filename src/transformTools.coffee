@@ -272,10 +272,13 @@ exports.loadTransformConfig = (transformName, file, done) ->
 
                         config = pkg[transformName]
 
-                        if !config? and !isRootDir(packageDir)
-                            # No configuration here.  Try again in the parent dir.
-                            parent = path.resolve packageDir, ".."
-                            findConfig parent
+                        if !config?
+                            if !isRootDir(packageDir)
+                                # No configuration here.  Try again in the parent dir.
+                                parent = path.resolve packageDir, ".."
+                                findConfig parent
+                            else
+                                done null, null
 
                         else
                             # Found some configuration
