@@ -73,10 +73,11 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
         # Called when we're done reading file contents
         end = ->
             handleError = (error) =>
+                suffix = " (while #{transformName} was processing #{file})"
                 if error instanceof Error and error.message
-                    error.message += " (while processing #{file})"
+                    error.message += suffix
                 else
-                    error = new Error("#{error} (while processing #{file})")
+                    error = new Error("#{error}#{suffix}")
                 @emit 'error', error
 
             exports.loadTransformConfig transformName, file, (err, configData) =>

@@ -23,7 +23,7 @@ describe "transformTools falafel transforms", ->
             cb new Error("foo")
 
         transformTools.runTransform transform, dummyJsFile, {content:"lala"}, (err, result) ->
-            assert.equal err?.message, "foo (while processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
+            assert.equal err?.message, "foo (while unyellowify was processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
             done()
 
     it "should return an error when falafel transform throws an error", (done) ->
@@ -31,5 +31,5 @@ describe "transformTools falafel transforms", ->
             throw new Error("foo")
 
         transformTools.runTransform transform, dummyJsFile, {content:"lala"}, (err, result) ->
-            assert.equal err?.message, "foo (while processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
+            assert.equal err?.message, "foo (while unyellowify was processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
             done()

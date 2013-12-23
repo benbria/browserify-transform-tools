@@ -23,7 +23,7 @@ describe "transformTools string transforms", ->
             cb new Error("foo")
 
         transformTools.runTransform transform, dummyJsFile, {content:"lala"}, (err, result) ->
-            assert.equal err?.message, "foo (while processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
+            assert.equal err?.message, "foo (while unblueify was processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
             done()
 
     it "should return an error when string transform throws an error", (done) ->
@@ -31,7 +31,7 @@ describe "transformTools string transforms", ->
             throw new Error("foo")
 
         transformTools.runTransform transform, dummyJsFile, {content:"lala"}, (err, result) ->
-            assert.equal err?.message, "foo (while processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
+            assert.equal err?.message, "foo (while unblueify was processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
             done()
 
 

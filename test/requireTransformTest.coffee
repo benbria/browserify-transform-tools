@@ -94,7 +94,7 @@ describe "transformTools require transforms", ->
             cb new Error("foo")
 
         transformTools.runTransform transform, dummyJsFile, {content:"require('boo');"}, (err, result) ->
-            assert.equal err?.message, "foo (while processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
+            assert.equal err?.message, "foo (while requireTransform was processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
             done()
 
     it "should return an error when require transform throws an error", (done) ->
@@ -102,5 +102,5 @@ describe "transformTools require transforms", ->
             throw new Error("foo")
 
         transformTools.runTransform transform, dummyJsFile, {content:"require('boo');"}, (err, result) ->
-            assert.equal err?.message, "foo (while processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
+            assert.equal err?.message, "foo (while requireTransform was processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
             done()
