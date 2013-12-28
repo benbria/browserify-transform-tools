@@ -33,7 +33,7 @@ module.exports = transformTools.makeStringTransform("unbluify", options,
 ```
 
 Notice that the color we replace "blue" with gets loaded from configuration.  The configuration
-can either be specified in the project's package.json:
+can be set in a variety of ways.  A simple example is to set it directly in package.json:
 
 ```JavaScript
 {
@@ -44,23 +44,7 @@ can either be specified in the project's package.json:
 }
 ```
 
-Or alternatively you can set the "unbluify" key to be a js or JSON file:
-
-```JavaScript
-{
-    "unbluify": "unbluifyConfig.js"
-}
-```
-
-And then configuration will be loaded from that file:
-
-```JavaScript
-module.exports = {
-    newColor: "red"
-};
-```
-
-Note this means you can use enviroment variables to make changes to your configuration.
+See the section on "Loading Configuration" below for details on where configuration can be loaded from.
 
 Parameters for `makeStringTransform()`:
 
@@ -127,7 +111,40 @@ Again, all other options you can pass to `makeStringTransform` are valid here, t
 Loading Configuration
 =====================
 
-All `make*Transform()` functions will automatically load configuration for your transform and make it available via `transformOptions.configData` and `transformOptions.config`.  If you are writing your own transform which doesn't use one of these functions, you can still use browserify-transform-tools to load configuration:
+All `make*Transform()` functions will automatically load configuration for your transform and make it available via `transformOptions.configData` and `transformOptions.config`.
+
+All `make*Transform()` functions return a transform which has a function called `configure(config, options)` which can be called to pass configuration directly to the transform.  `config` will be passed to the transform as `transformOptions.configData.config` and `transformOptions.config`.  If `options.configFile` is set, it will be used to set `transformOptions.configFile` and `transformOptions.configDir` - these are passed to transforms so they can resolve relative path names.  You can also specify `options.configDir` directly.  `configure()` returns a new transform instance and does not modify the existing transform.  If want to modify the configuration on an existing instance, you can call `setConfig()` with the same options.
+
+If neither `configure()` nor `setConfig()` is called, then a transform will look for configuration in package.json.  For example, for a "unbluify" transform:
+
+```JavaScript
+{
+    "name": "myProject",
+    "version": "1.0.0",
+    ...
+    "unbluify": {"newColor": "red"}
+}
+```
+
+Or alternatively you can set the "unbluify" key to be a js or JSON file:
+
+```JavaScript
+{
+    "unbluify": "unbluifyConfig.js"
+}
+```
+
+And then configuration will be loaded from that file:
+
+```JavaScript
+module.exports = {
+    newColor: "red"
+};
+```
+
+Note this means you can use enviroment variables to make changes to your configuration.
+
+If you are writing your own transform which doesn't use a `make*Transform()` function, you can still use browserify-transform-tools to load configuration from package.json:
 
 ```JavaScript
 var transformTools = require('browserify-transform-tools');

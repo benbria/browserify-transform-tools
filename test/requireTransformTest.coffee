@@ -25,6 +25,62 @@ describe "transformTools require transforms", ->
             assert.equal result, expectedContent
             done()
 
+    it "should allow load options from configuration", (done) ->
+        transform = transformTools.makeRequireTransform "fooify", (args, opts, cb) ->
+            if args[0] is "foo"
+                cb null, "require('#{opts.config.foo}')"
+            else
+                cb()
+
+        content = """
+            require('foo');
+            require('baz');
+            """
+        expectedContent = """
+            require('bar');
+            require('baz');
+            """
+        transformTools.runTransform transform, dummyJsFile, {content}, (err, result) ->
+            return done err if err
+            assert.equal result, expectedContent
+            done()
+
+    it "should allow manual configuration to override existing configuration", (done) ->
+        transform = transformTools.makeRequireTransform "fooify", (args, opts, cb) ->
+            if args[0] is "foo"
+                cb null, "require('#{opts.config.foo}')"
+            else
+                cb()
+        transform = transform.configure {foo: "qux"}
+
+        content = """
+            require('foo');
+            require('baz');
+            """
+        expectedContent = """
+            require('qux');
+            require('baz');
+            """
+        transformTools.runTransform transform, dummyJsFile, {content}, (err, result) ->
+            return done err if err
+            assert.equal result, expectedContent
+
+            transform = transform.setConfig {foo: "zam"}
+
+            content = """
+                require('foo');
+                require('baz');
+                """
+            expectedContent = """
+                require('zam');
+                require('baz');
+                """
+            transformTools.runTransform transform, dummyJsFile, {content}, (err, result) ->
+                return done err if err
+                assert.equal result, expectedContent
+                done()
+
+
     it "should handle simple expressions", (done) ->
         transform = transformTools.makeRequireTransform "requireTransform", (args, opts, cb) ->
             if args[0] is "foo"

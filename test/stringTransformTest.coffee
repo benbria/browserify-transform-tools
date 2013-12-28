@@ -65,3 +65,20 @@ describe "transformTools string transforms", ->
         }, (content, opts, cb) ->
             cb null, content.replace(/blue/g, opts.config.color);
         verifyRunsOnJsAndNotJson transform, done
+
+    it "should allow manual configuration to override existing configuration", (done) ->
+        transform = transformTools.makeStringTransform "xify", (content, opts, cb) ->
+            if opts.config
+                done null, "x"
+            else
+                done null, content
+
+        configuredTransform = transform.configure {foo: "x"}
+
+        transformTools.runTransform transform, dummyJsFile, {content:"lala"}, (err, result) ->
+            assert.equal result, "lala"
+
+            transformTools.runTransform configuredTransform, dummyJsFile, {content:"lala"}, (err, result) ->
+                assert.equal result, "x"
+                done()
+

@@ -33,3 +33,23 @@ describe "transformTools falafel transforms", ->
         transformTools.runTransform transform, dummyJsFile, {content:"lala"}, (err, result) ->
             assert.equal err?.message, "foo (while unyellowify was processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
             done()
+
+    it "should allow manual configuration to override existing configuration", (done) ->
+        transform = transformTools.makeFalafelTransform "unyellowify", (node, opts, cb) ->
+            if node.type is "ArrayExpression"
+                node.update "#{opts.config.color}(#{node.source()})"
+            cb()
+
+        configuredTransform = transform.configure {color: "blue"}
+
+        content = "var x = [1,2,3];"
+        expectedContent = "var x = green([1,2,3]);"
+        transformTools.runTransform transform, dummyJsFile, {content}, (err, result) ->
+            return done err if err
+            assert.equal result, expectedContent
+
+            expectedContent = "var x = blue([1,2,3]);"
+            transformTools.runTransform configuredTransform, dummyJsFile, {content}, (err, result) ->
+                return done err if err
+                assert.equal result, expectedContent
+                done()

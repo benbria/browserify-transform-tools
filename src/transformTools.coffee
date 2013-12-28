@@ -63,7 +63,7 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
         transformFn = options
         options = {}
 
-    (file) ->
+    transform = (file) ->
         if skipFile file, options then return through()
 
         # Read the file contents into `content`
@@ -80,9 +80,7 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
                     error = new Error("#{error}#{suffix}")
                 @emit 'error', error
 
-            exports.loadTransformConfig transformName, file, (err, configData) =>
-                return handleError err if err
-
+            doTransform = (configData) =>
                 try
                     transformOptions = {
                         file: file,
@@ -96,7 +94,56 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
                 catch err
                     handleError err
 
+            if transform.configData
+                process.nextTick -> doTransform transform.configData
+            else
+                exports.loadTransformConfig transformName, file, (err, configData) =>
+                    return handleError err if err
+                    doTransform configData
+
+
         return through write, end
+
+    # Called to manually pass configuration data to the transform.  Configuration passed in this
+    # way will override configuration loaded from package.json.
+    #
+    # * `config` is the configuration data.
+    # * `configOptions.configFile` is the file that configuration data was loaded from.  If this
+    #   is specified and `configOptions.configDir` is not specified, then `configOptions.configDir`
+    #   will be inferred from the configFile's path.
+    # * `configOptions.configDir` is the directory the configuration was loaded from.  This is used
+    #   by some transforms to resolve relative paths.
+    #
+    # Returns a new transform that uses the configuration:
+    #
+    #     myTransform = require('myTransform').configure(...)
+    #
+    transform.configure = (config, configOptions = {}) ->
+        answer = exports.makeStringTransform transformName, options, transformFn
+        answer.setConfig config, configOptions
+        return answer
+
+    # Similar to `configure()`, but modifies the transform instance it is called on.  This can
+    # be used to set the default configuration for the transform.
+    transform.setConfig = (config, configOptions = {}) ->
+        configFile = configOptions.configFile or null
+        configDir = configOptions.configDir or if configFile then path.dirname configFile else null
+
+        if !config
+            @configData = null
+        else
+            @configData = {
+                config: config,
+                configFile: configFile,
+                configDir: configDir,
+                cached: false
+            }
+
+        return this
+
+
+    return transform
+
 
 # Create a new Browserify transform based on [falafel](https://github.com/substack/node-falafel).
 #
@@ -114,7 +161,7 @@ exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
 
     falafelOptions = options.falafelOptions ? {}
 
-    return exports.makeStringTransform transformName, options, (content, transformOptions, done) ->
+    transform = exports.makeStringTransform transformName, options, (content, transformOptions, done) ->
         transformErr = null
         pending = 1 # We'll decrement this to zero at the end to prevent premature call of `done`.
         transformed = null
@@ -140,6 +187,27 @@ exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
 
         # call transformCb one more time to decrement pending to 0.
         transformCb transformErr, transformed
+
+    # Called to manually pass configuration data to the transform.  Configuration passed in this
+    # way will override configuration loaded from package.json.
+    #
+    # * `config` is the configuration data.
+    # * `configOptions.configFile` is the file that configuration data was loaded from.  If this
+    #   is specified and `configOptions.configDir` is not specified, then `configOptions.configDir`
+    #   will be inferred from the configFile's path.
+    # * `configOptions.configDir` is the directory the configuration was loaded from.  This is used
+    #   by some transforms to resolve relative paths.
+    #
+    # Returns a new transform that uses the configuration:
+    #
+    #     myTransform = require('myTransform').configure(...)
+    #
+    transform.configure = (config, configOptions = {}) ->
+        answer = exports.makeFalafelTransform transformName, options, transformFn
+        answer.setConfig config, configOptions
+        return answer
+
+    return transform
 
 # Create a new Browserify transform that modifies requires() calls.
 #
@@ -170,7 +238,7 @@ exports.makeRequireTransform = (transformName, options={}, transformFn) ->
 
     evaluateArguments = options.evaluateArguments ? true
 
-    return exports.makeFalafelTransform transformName, options, (node, transformOptions, done) ->
+    transform = exports.makeFalafelTransform transformName, options, (node, transformOptions, done) ->
         if (node.type is 'CallExpression' and node.callee.type is 'Identifier' and
         node.callee.name is 'require')
             # Parse arguemnts to calls to `require`.
@@ -196,6 +264,27 @@ exports.makeRequireTransform = (transformName, options={}, transformFn) ->
                 done()
         else
             done()
+
+    # Called to manually pass configuration data to the transform.  Configuration passed in this
+    # way will override configuration loaded from package.json.
+    #
+    # * `config` is the configuration data.
+    # * `configOptions.configFile` is the file that configuration data was loaded from.  If this
+    #   is specified and `configOptions.configDir` is not specified, then `configOptions.configDir`
+    #   will be inferred from the configFile's path.
+    # * `configOptions.configDir` is the directory the configuration was loaded from.  This is used
+    #   by some transforms to resolve relative paths.
+    #
+    # Returns a new transform that uses the configuration:
+    #
+    #     myTransform = require('myTransform').configure(...)
+    #
+    transform.configure = (config, configOptions = {}) ->
+        answer = exports.makeRequireTransform transformName, options, transformFn
+        answer.setConfig config, configOptions
+        return answer
+
+    return transform
 
 # This is a cache where keys are directory names, and values are the closest ancestor directory
 # that contains a package.json
@@ -287,8 +376,10 @@ loadExternalConfig = (packageFile, relativeConfigFile) ->
 # * `configData.config` - The configuration for the transform.
 # * `configData.configDir` - The directory the configuration was loaded from; the directory which
 #   contains package.json if that's where the config came from, or the directory which contains
-#   the file specified in package.json.  This is handy for resolving relative paths.
-# * `configData.configFile` - The file the configuration was loaded from.
+#   the file specified in package.json.  This is handy for resolving relative paths.  Note thate
+#   this field may be null if the configuration is overridden via the `configure()` function.
+# * `configData.configFile` - The file the configuration was loaded from.  Note thate
+#   this field may be null if the configuration is overridden via the `configure()` function.
 # * `configData.cached` - Since a transform is run once for each file in a project, configuration
 #   data is cached using the location of the package.json file as the key.  If this value is true,
 #   it means that data was loaded from the cache.
