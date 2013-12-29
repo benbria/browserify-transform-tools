@@ -160,3 +160,19 @@ describe "transformTools require transforms", ->
         transformTools.runTransform transform, dummyJsFile, {content:"require('boo');"}, (err, result) ->
             assert.equal err?.message, "foo (while requireTransform was processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
             done()
+
+    it "should gracefully handle a syntax error", (done) ->
+        transform = transformTools.makeRequireTransform "requireTransform", (args, opts, cb) ->
+            if args[0] is "foo"
+                cb null, "require('bar')"
+            else
+                cb()
+
+        content = """
+            require('foo');
+            require({;
+            """
+        transformTools.runTransform transform, dummyJsFile, {content}, (err, result) ->
+            assert err != null, "Expected an error from runTransform"
+            done()
+
