@@ -163,10 +163,7 @@ describe "transformTools require transforms", ->
 
     it "should gracefully handle a syntax error", (done) ->
         transform = transformTools.makeRequireTransform "requireTransform", (args, opts, cb) ->
-            if args[0] is "foo"
-                cb null, "require('bar')"
-            else
-                cb()
+            cb()
 
         content = """
             require('foo');

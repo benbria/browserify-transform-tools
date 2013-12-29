@@ -53,3 +53,15 @@ describe "transformTools falafel transforms", ->
                 return done err if err
                 assert.equal result, expectedContent
                 done()
+
+    it "should gracefully handle a syntax error", (done) ->
+        transform = transformTools.makeFalafelTransform "identityify", (node, opts, cb) ->
+            cb()
+
+        content = """
+            require('foo');
+            require({;
+            """
+        transformTools.runTransform transform, dummyJsFile, {content}, (err, result) ->
+            assert err != null, "Expected an error from runTransform"
+            done()
