@@ -68,6 +68,11 @@ Parameters for `makeStringTransform()`:
   specified, then all extensions will be processed.  If this option is specified, then
   any file with an extension not in this list will skipped.
 
+* `options.jsFilesOnly` - If set true, then your transform will only run on "javascript" files.
+  This is handy for Falafel and Require transforms, defined below.  This is equivalent to
+  passing
+  `includeExtensions: [".js", ".coffee", ".coffee.md", ".litcoffee", "._js", "._coffee"]`.
+
 Creating a Falafel Transform
 ============================
 Many transforms are based on [falafel](https://github.com/substack/node-falafel). browserify-transform-tools provides an easy way to define such transforms.  Here is an example which wraps all array expressions in a call to `fn()`:
