@@ -11,6 +11,7 @@ skipFile = require './skipFile'
 
 exports.loadTransformConfig = loadConfig.loadTransformConfig
 exports.loadTransformConfigSync = loadConfig.loadTransformConfigSync
+exports.skipFile = skipFile
 
 # TODO: Does this work on Windows?
 isRootDir = (filename) -> filename == path.resolve(filename, '/')
@@ -120,6 +121,11 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
                 configDir: configDir,
                 cached: false
             }
+
+            if config.appliesTo
+                @configData.appliesTo = config.appliesTo
+                delete config.appliesTo
+
 
         return this
 

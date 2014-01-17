@@ -21,10 +21,10 @@ module.exports = (file, configData={}, options={}) ->
 
     # If there's no appliesTo, then use options.
     if !appliesTo? or (
-        !appliesTo?.excludeExtensions? and
-        !appliesTo?.excludeExtensions? and
-        !appliesTo?.regex? and
-        !appliesTo?.files?
+        !appliesTo.includeExtensions? and
+        !appliesTo.excludeExtensions? and
+        !appliesTo.regex? and
+        !appliesTo.files?
     )
         appliesTo = options
 
@@ -45,9 +45,9 @@ module.exports = (file, configData={}, options={}) ->
 
     else if appliesTo.files?
         includeThisFile = false
-        relativeFile = path.relative configData.configDir, file
-        for f in appliesTo.files
-            if f == relativeFile
+        for fileToTest in appliesTo.files
+            fileToTest = path.resolve configData.configDir, fileToTest
+            if fileToTest == file
                 includeThisFile = true
                 break
         if !includeThisFile then skip = true
