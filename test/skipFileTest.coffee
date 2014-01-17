@@ -12,6 +12,14 @@ dummyJsFile = path.resolve __dirname, "../testFixtures/testWithConfig/dummy.js"
 testDir = path.resolve __dirname, "../testFixtures/testWithConfig"
 
 describe "transformTools skipping files", ->
+    cwd = process.cwd()
+
+    beforeEach ->
+        process.chdir testDir
+
+    after ->
+        process.chdir cwd
+
     verifyExtensions = (transform, includedExtensions, skippedExtensions, done) ->
         content = "this is a blue test"
         expectedContent = "this is a red test"
@@ -105,7 +113,6 @@ describe "transformTools skipping files", ->
     it "should respect 'regex' from config", ->
         options = {
             appliesTo: includeExtensions: ['.js']
-
         }
         configData = {
             configDir: '.'
@@ -113,6 +120,24 @@ describe "transformTools skipping files", ->
         }
         assert skipFile("foo.js", configData, options), "Should skip foo.js"
         assert !skipFile("foo.json", configData, options), "Should not skip foo.json"
+
+    it "should respect `files` from config file", (done) ->
+        transform = transformTools.makeStringTransform "applyToExtify", {
+            includeExtensions: ['.js']
+        }, (content, opts, cb) ->
+            cb null, content.replace(/blue/g, 'red');
+
+        content = "this is a blue test"
+        expectedContent = "this is a red test"
+
+        transformTools.runTransform transform, dummyJsFile, {content}, (err, result) ->
+            return done err if err
+            assert result == content, "Should not transform #{dummyJsFile}"
+            dummyGreenJsFile = path.resolve __dirname, "../testFixtures/testWithConfig/green.js"
+            transformTools.runTransform transform, dummyGreenJsFile, {content}, (err, result) ->
+                return done err if err
+                assert result == expectedContent, "Should transform #{dummyGreenJsFile}"
+                done()
 
 
 

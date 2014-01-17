@@ -5,5 +5,8 @@
     "unyellowify": "./yellow/unyellowify.js",
     "fooify": {
         "foo": "bar"
+    },
+    "applyToExtify": {
+        "appliesTo": {"files": ["./green.js"]}
     }
 }

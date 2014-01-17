@@ -130,9 +130,9 @@ processConfig = (transformName, packageFile, config) ->
         configDir = path.dirname packageFile
         configData = {config, configDir, configFile, packageFile, cached: false}
 
-    if config.appliesTo
-        configData.appliesTo = config.appliesTo
-        delete config.appliesTo
+    if configData.config.appliesTo
+        configData.appliesTo = configData.config.appliesTo
+        delete configData.config.appliesTo
 
     storeConfigInCache transformName, packageFile, configData
 
