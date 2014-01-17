@@ -1,42 +1,26 @@
 # Functions for loading a transform's configuration.
 #
-# ## Finding package.json
+# More details are available in [the transform configuration documentation](https://github.com/benbria/browserify-transform-tools/wiki/Transform-Configuration).
 #
-# The default behavior when looking for package.json is to start from the CWD, walk up the
-# directory tree until package.json is found, then load the configuration from that file.
+# ## Config Object
 #
-# If `options.fromSourceFileDir` is set, then instead the behavior is to start at the source file,
-# walk up the directory tree until package.json is found, and try to load configration from that
-# file.  If configuration is not found, then we will continue to walk up the tree until we find
-# another package.json and will try again, recursively.  This is similar to how
-# [browserify-shim](https://github.com/thlorenz/browserify-shim) looks for configuration, and was
-# the default in v1.x.  See
-# [this issue](https://github.com/benbria/browserify-transform-tools/issues/1) for further details.
-#
-# ## Loading configuration
-#
-# Once package.json is found, we will look for a key in package.json with same name as your
-# transform.  Suppose you write a transform called "soupify".  In your transform, you'd do
-# something like:
-#
-#     browserifyTransformTools.loadTransformConfig "soupify",
-#         "/Users/jwalton/project/foo.js", (err, configData) ->
-#             ....
-#
-# This will find package.json and look for a key called "soupify".  Once the "soupify" key is
-# found, if the value of the key is an object, the loaded configuration will be that object.  If
-# the value of the key is a string, this will load the JSON or js file referenced by the string,
-# and return its contents instead.
+# The config object returned has the following properties:
+# * `configData.config` - The configuration for the transform.
+# * `configData.configDir` - The directory the configuration was loaded from; the directory which
+#   contains package.json if that's where the config came from, or the directory which contains
+#   the file specified in package.json.  This is handy for resolving relative paths.  Note thate
+#   this field may be null if the configuration is overridden via the `configure()` function.
+# * `configData.configFile` - The file the configuration was loaded from.  Note thate
+#   this field may be null if the configuration is overridden via the `configure()` function.
+# * `configData.cached` - Since a transform is run once for each file in a project, configuration
+#   data is cached using the location of the package.json file as the key.  If this value is true,
+#   it means that data was loaded from the cache.
+# * `configData.appliesTo` - The `appliesTo` from the configuration, if one was present.
 #
 # ## Common Configuration
 #
 # All modules that rely on browserify-transform-tools can contain a configuration item called
-# 'appliesTo'.  This will configure what files the transform will be applied to.  For example,
-# users of the "soupify" transform we defined above might add the following to their package.json:
-#
-#     "soupify": {
-#         "appliesTo": {"includeExtensions": [".js"]}
-#     }
+# 'appliesTo'.  This will configure what files the transform will be applied to.
 #
 # `appliesTo` should include exactly one of the following:
 #
@@ -60,21 +44,6 @@
 # although it is available in the `configData` if you need it for some reason.  Note that
 # `appliesTo` will override the `includeExtensions` and `excludeExtensions` provided to any of the
 # `make*Transform()` functions.
-#
-# ## Config Object
-#
-# The config object returned has the following properties:
-# * `configData.config` - The configuration for the transform.
-# * `configData.configDir` - The directory the configuration was loaded from; the directory which
-#   contains package.json if that's where the config came from, or the directory which contains
-#   the file specified in package.json.  This is handy for resolving relative paths.  Note thate
-#   this field may be null if the configuration is overridden via the `configure()` function.
-# * `configData.configFile` - The file the configuration was loaded from.  Note thate
-#   this field may be null if the configuration is overridden via the `configure()` function.
-# * `configData.cached` - Since a transform is run once for each file in a project, configuration
-#   data is cached using the location of the package.json file as the key.  If this value is true,
-#   it means that data was loaded from the cache.
-# * `configData.appliesTo` - The `appliesTo` from the configuration, if one was present.
 #
 
 path    = require 'path'
