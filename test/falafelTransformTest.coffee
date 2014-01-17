@@ -75,7 +75,7 @@ describe "transformTools falafel transforms", ->
             assert err != null, "Expected an error from runTransform"
             done()
 
-    it "should not try to parse a json file if jsFilesOnly is true.", (done) ->
+    it "should not try to parse a json file if jsFilesOnly is true", (done) ->
         dummyJsonFile = path.resolve __dirname, "../testFixtures/testWithConfig/dummy.json"
 
         transform = transformTools.makeFalafelTransform "identityify", {jsFilesOnly: true}, (args, opts, cb) ->
@@ -87,5 +87,16 @@ describe "transformTools falafel transforms", ->
             assert.equal result, content
             done()
 
+    it "should raise a warning when parsing a json file", (done) ->
+        dummyJsonFile = path.resolve __dirname, "../testFixtures/testWithConfig/dummy.json"
+
+        transform = transformTools.makeFalafelTransform "identityify", (args, opts, cb) ->
+            cb()
+
+        content = '{"foo": "bar"}'
+        transformTools.runTransform transform, dummyJsonFile, {content}, (err, result) ->
+            return done err if err
+            assert.equal result, content
+            done()
 
 

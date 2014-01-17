@@ -5,7 +5,7 @@ browserify = require 'browserify'
 async = require 'async'
 
 transformTools = require '../src/transformTools'
-skipFile = require '../src/skipFile'
+skipFile = require('../src/skipFile').skipFile
 
 dummyJsonFile = path.resolve __dirname, "../testFixtures/testWithConfig/dummy.json"
 dummyJsFile = path.resolve __dirname, "../testFixtures/testWithConfig/dummy.js"

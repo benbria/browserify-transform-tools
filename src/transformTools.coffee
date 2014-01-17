@@ -11,7 +11,7 @@ skipFile = require './skipFile'
 
 exports.loadTransformConfig = loadConfig.loadTransformConfig
 exports.loadTransformConfigSync = loadConfig.loadTransformConfigSync
-exports.skipFile = skipFile
+exports.skipFile = skipFile.skipFile
 
 # TODO: Does this work on Windows?
 isRootDir = (filename) -> filename == path.resolve(filename, '/')
@@ -56,7 +56,7 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
         else
             loadConfig.loadTransformConfigSync transformName, file, options
 
-        if skipFile file, configData, options then return through()
+        if skipFile.skipFile file, configData, options then return through()
 
         # Read the file contents into `content`
         content = ''
@@ -126,7 +126,6 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
                 @configData.appliesTo = config.appliesTo
                 delete config.appliesTo
 
-
         return this
 
 
@@ -156,25 +155,37 @@ exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
 
         transformCb = (err) ->
             if err and !transformErr
+                # This is the first error we've seen.  Pass it on immediately.
                 transformErr = err
-                done err
 
-            # Stop further processing if an error has occurred
+                if !skipFile.isJsFile(transformOptions.file)
+                    # Probably a parse exception, since this isn't a JS file.  Raise a warning.
+                    console.log "#{transformName} - Warning: Skipping file #{transformOptions.file}:"
+                    console.log "  #{err}"
+                    done null, content
+                else
+                    done err
+
+            # Stop further processing if an error has occurred - we've already called `done()`.
             return if transformErr
 
             pending--
             if pending is 0
                 done null, transformed
 
-        transformed = falafel content, falafelOptions, (node) ->
-            pending++
-            try
-                transformFn node, transformOptions, transformCb
-            catch err
-                transformCb err
+        try
+            transformed = falafel content, falafelOptions, (node) ->
+                pending++
+                try
+                    transformFn node, transformOptions, transformCb
+                catch err
+                    transformCb err
 
-        # call transformCb one more time to decrement pending to 0.
-        transformCb transformErr, transformed
+            # call transformCb one more time to decrement pending to 0.
+            transformCb()
+        catch err
+            transformCb err
+
 
     # Called to manually pass configuration data to the transform.  Configuration passed in this
     # way will override configuration loaded from package.json.

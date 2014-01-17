@@ -12,8 +12,18 @@ isArray = (obj) -> Object.prototype.toString.call( obj ) == '[object Array]'
 endsWith = (str, suffix) ->
     return str.indexOf(suffix, str.length - suffix.length) != -1
 
+exports.isJsFile = (file) ->
+    answer = false
+
+    for extension in JS_EXTENSIONS
+        if endsWith(file, extension)
+            answer = true
+            break
+
+    return answer
+
 # Returns true if the given file should not be procesed, given the specified options and configData.
-module.exports = (file, configData={}, options={}) ->
+exports.skipFile = (file, configData={}, options={}) ->
     file = path.resolve file
     skip = false
 
@@ -67,4 +77,3 @@ module.exports = (file, configData={}, options={}) ->
         if !includeThisFile then skip = true
 
     return skip
-
