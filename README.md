@@ -8,6 +8,7 @@ Many different transforms perform certain basic functionality, such as turning t
 * All of the above will automatically search for transform configuration in package.json and pass it to you if available, but if you have a more complicated use case than the `make*Transform()` functions will support, then `loadTransformConfig()` will load configuration for you.
 * `runTransform()` can be used to unit test your shiny new transform.
 
+
 Installation
 ============
 
@@ -54,8 +55,10 @@ Parameters for `makeStringTransform()`:
   file.  transformOptions consists of:
 
   * `transformOptions.file` is the name of the file (as would be passed to a normal browserify transform.)
+
   * `transformOptions.configData` is the configuration data for the transform (see
   `loadTransformConfig` below for details on where this comes from.)
+
   * `transformOptions.config` is a copy of `transformOptions.configData.config` for convenience.
 
 * `options.excludeExtensions` - A list of extensions which will not be processed.  e.g.
@@ -111,57 +114,9 @@ Again, all other options you can pass to `makeStringTransform` are valid here, t
 Loading Configuration
 =====================
 
-All `make*Transform()` functions will automatically load configuration for your transform and make it available via `transformOptions.configData` and `transformOptions.config`.
+All `make*Transform()` functions will automatically load configuration for your transform and make it available via `transformOptions.config` (and through the more detailed `transformOptions.configData`.)  Functions are also provided for reading configuration if you are not using one of the `make*Transform()` functions.
 
-All `make*Transform()` functions return a transform which has a function called `configure(config, options)` which can be called to pass configuration directly to the transform.  `config` will be passed to the transform as `transformOptions.configData.config` and `transformOptions.config`.  If `options.configFile` is set, it will be used to set `transformOptions.configFile` and `transformOptions.configDir` - these are passed to transforms so they can resolve relative path names.  You can also specify `options.configDir` directly.  `configure()` returns a new transform instance and does not modify the existing transform.  If want to modify the configuration on an existing instance, you can call `setConfig()` with the same options.
-
-If neither `configure()` nor `setConfig()` is called, then a transform will look for configuration in package.json.  For example, for a "unbluify" transform:
-
-```JavaScript
-{
-    "name": "myProject",
-    "version": "1.0.0",
-    ...
-    "unbluify": {"newColor": "red"}
-}
-```
-
-Or alternatively you can set the "unbluify" key to be a js or JSON file:
-
-```JavaScript
-{
-    "unbluify": "unbluifyConfig.js"
-}
-```
-
-And then configuration will be loaded from that file:
-
-```JavaScript
-module.exports = {
-    newColor: "red"
-};
-```
-
-Note this means you can use enviroment variables to make changes to your configuration.
-
-If you are writing your own transform which doesn't use a `make*Transform()` function, you can still use browserify-transform-tools to load configuration from package.json:
-
-```JavaScript
-var transformTools = require('browserify-transform-tools');
-
-var configData = transformTools.loadTransformConfig('myTransform', file, function(err, configData) {
-    var config = configData.config;
-    var configDir = configData.configDir;
-    ...
-});
-
-```
-
-`loadTransformConfig()` will search the parent directory of `file` and its ancestors to find a `package.json` file.  Once it finds one, it will look for a key called 'myTransform' (taken from the transformName passed into `loadTransformConfig()`.)  If this key maps to a JSON object, then `loadTransformConfigSync()` will return the object.  If this key maps to a string, then `loadTransformConfigSync()` will try to load the JSON or JS file the string represents and will return that instead.  For example, if package.json contains `{"myTransform": "./myTransform.json"}`, then the contents of "myTransform.json" will be returned.  `configData.config` is the loaded data.  `configData.configDir` is the directory which contained the file that data was loaded from (handy for resolving relative path names.)  For other fields returned by `loadTransformConfigSync()`, see comments in [the source](https://github.com/benbria/browserify-transform-tools/blob/master/src/transformTools.coffee).
-
-There is a synchronous version of this function, as well, called `loadTransformConfigSync(transformName, file)`.
-
-Note that since configuration can be supplied in a .js file, the .js file can alter the configuration based on environment variables.
+Transform configuration can be loaded from a project's package.json file, from a js or coffee file specified in package.json, or programatically.  For details, see [the transform configuration documentation](https://github.com/benbria/browserify-transform-tools/wiki/Transform-Configuration).
 
 Running a Transform
 ===================
