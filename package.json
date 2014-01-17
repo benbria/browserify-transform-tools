@@ -26,6 +26,12 @@
   },
   "devDependencies": {
     "coffee-script": "1.6.3",
-    "mocha": "1.15.0"
+    "mocha": "1.15.0",
+    "browserify": "~3.14.1",
+    "async": "~0.2.9"
+  },
+  "scripts": {
+    "test": "cake test",
+    "build": "cake build"
   }
 }

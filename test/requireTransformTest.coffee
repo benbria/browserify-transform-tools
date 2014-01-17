@@ -1,10 +1,20 @@
 transformTools = require '../src/transformTools'
+browserify = require 'browserify'
 path = require 'path'
 assert = require 'assert'
 
 dummyJsFile = path.resolve __dirname, "../testFixtures/testWithConfig/dummy.js"
+testDir = path.resolve __dirname, "../testFixtures/testWithConfig"
 
 describe "transformTools require transforms", ->
+    cwd = process.cwd()
+
+    beforeEach ->
+        process.chdir testDir
+
+    after ->
+        process.chdir cwd
+
     it "should generate a transform for require", (done) ->
         transform = transformTools.makeRequireTransform "requireTransform", (args, opts, cb) ->
             if args[0] is "foo"
@@ -172,4 +182,3 @@ describe "transformTools require transforms", ->
         transformTools.runTransform transform, dummyJsFile, {content}, (err, result) ->
             assert err != null, "Expected an error from runTransform"
             done()
-

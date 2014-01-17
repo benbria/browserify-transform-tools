@@ -6,28 +6,11 @@ fs      = require 'fs'
 through   = require 'through'
 falafel   = require 'falafel'
 
-parentDir = require './parentDir'
+loadConfig = require './loadConfig'
+skipFile = require './skipFile'
 
-endsWith = (str, suffix) ->
-    return str.indexOf(suffix, str.length - suffix.length) != -1
-
-# Returned true if the given file should not be procesed, given the specified options.
-skipFile = (file, options) ->
-    answer = false
-
-    if options.excludeExtensions
-        for extension in options.excludeExtensions
-            if endsWith(file, extension) then answer = true
-
-    if options.includeExtensions
-        includeThisFile = false
-        for extension in options.includeExtensions
-            if endsWith(file, extension)
-                includeThisFile = true
-                break
-        if !includeThisFile then answer = true
-
-    return answer
+exports.loadTransformConfig = loadConfig.loadTransformConfig
+exports.loadTransformConfigSync = loadConfig.loadTransformConfigSync
 
 # TODO: Does this work on Windows?
 isRootDir = (filename) -> filename == path.resolve(filename, '/')
@@ -57,6 +40,9 @@ isRootDir = (filename) -> filename == path.resolve(filename, '/')
 # * `options.includeExtensions` - A list of extensions to process.  If this options is not
 #   specified, then all extensions will be processed.  If this option is specified, then
 #   any file with an extension not in this list will skipped.
+# * `options.jsFilesOnly` - If true (and if includeExtensions is not set) then this transform
+#   will only operate on .js files, and on files which are commonly compiled to javascript
+#   (.coffee, .litcoffee, .coffee.md, .jade, etc...)
 #
 exports.makeStringTransform = (transformName, options={}, transformFn) ->
     if !transformFn?
@@ -64,7 +50,12 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
         options = {}
 
     transform = (file) ->
-        if skipFile file, options then return through()
+        configData = if transform.configData?
+            transform.configData
+        else
+            loadConfig.loadTransformConfigSync transformName, file, options
+
+        if skipFile file, configData, options then return through()
 
         # Read the file contents into `content`
         content = ''
@@ -80,27 +71,18 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
                     error = new Error("#{error}#{suffix}")
                 @emit 'error', error
 
-            doTransform = (configData) =>
-                try
-                    transformOptions = {
-                        file: file,
-                        configData, configData,
-                        config: configData?.config
-                    }
-                    transformFn content, transformOptions, (err, transformed) =>
-                        return handleError err if err
-                        @queue String(transformed)
-                        @queue null
-                catch err
-                    handleError err
-
-            if transform.configData
-                process.nextTick -> doTransform transform.configData
-            else
-                exports.loadTransformConfig transformName, file, (err, configData) =>
+            try
+                transformOptions = {
+                    file: file,
+                    configData, configData,
+                    config: configData?.config
+                }
+                transformFn content, transformOptions, (err, transformed) =>
                     return handleError err if err
-                    doTransform configData
-
+                    @queue String(transformed)
+                    @queue null
+            catch err
+                handleError err
 
         return through write, end
 
@@ -151,8 +133,8 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
 # * `transformFn(node, transformOptions, done)` is called once for each falafel node.  transformFn
 #   is free to update the falafel node directly; any value returned via `done(err)` is ignored.
 # * `options.falafelOptions` are options to pass directly to Falafel.
-# * `transformName`, `options.excludeExtensions`, `options.includeExtensions`, and `transformOptions`
-#   are the same as for `makeStringTransform()`.
+# * `transformName`, `options.excludeExtensions`, `options.includeExtensions`, `options.jsFilesOnly`,
+#   and `tranformOptions` are the same as for `makeStringTransform()`.
 #
 exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
     if !transformFn?
@@ -222,8 +204,8 @@ exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
 #
 # would transform calls like `require("foo")` into `require("xfoo")`.
 #
-# `transformName`, `options.excludeExtensions`, `options.includeExtensions`, and
-# `tranformOptions` are the same as for `makeStringTransform()`.
+# `transformName`, `options.excludeExtensions`, `options.includeExtensions`, `options.jsFilesOnly`,
+# and `tranformOptions` are the same as for `makeStringTransform()`.
 #
 # By default, makeRequireTransform will attempt to evaluate each "require" parameters.
 # makeRequireTransform can handle variabls `__filename`, `__dirname`, `path`, and `join` (where
@@ -285,206 +267,6 @@ exports.makeRequireTransform = (transformName, options={}, transformFn) ->
         return answer
 
     return transform
-
-# This is a cache where keys are directory names, and values are the closest ancestor directory
-# that contains a package.json
-packageJsonCache = {}
-
-findPackageJson = (dirname, done) ->
-    answer = packageJsonCache[dirname]
-    if answer
-        process.nextTick ->
-            done null, answer
-    else
-        parentDir.parentDir dirname, 'package.json', (err, packageDir) ->
-            return done err if err
-            if packageDir
-                packageFile = path.join(packageDir, 'package.json')
-            else
-                packageFile = null
-            packageJsonCache[dirname] = packageFile
-            done null, packageFile
-
-findPackageJsonSync = (dirname) ->
-    answer = packageJsonCache[dirname]
-    if !answer
-        packageDir = parentDir.parentDirSync dirname, 'package.json'
-        if packageDir
-            packageFile = path.join(packageDir, 'package.json')
-        else
-            packageFile = null
-        packageJsonCache[dirname] = packageFile
-        answer = packageFile
-    return answer
-
-# Cache for transform configuration.
-configCache = {}
-
-getConfigFromCache = (transformName, packageFile) ->
-    cacheKey = "#{transformName}:#{packageFile}"
-    return if configCache[cacheKey]? then configCache[cacheKey] else null
-
-storeConfigInCache = (transformName, packageFile, configData) ->
-    cacheKey = "#{transformName}:#{packageFile}"
-
-    # Copy the config data, so we can set `cached` to true without affecting the object passed in.
-    cachedConfigData = {}
-    for key, value of configData
-        cachedConfigData[key] = value
-    cachedConfigData.cached = true
-
-    configCache[cacheKey] = cachedConfigData
-
-loadJsonAsync = (filename, done) ->
-    fs.readFile filename, "utf-8", (err, content) ->
-        return done err if err
-        try
-            done null, JSON.parse(content)
-        catch err
-            done err
-
-# Load external configuration from a js or JSON file.
-# * `packageFile` is the package.json file which references the external configuration.
-# * `relativeConfigFile` is a file name relative to the package file directory.
-loadExternalConfig = (packageFile, relativeConfigFile) ->
-    # Load from an external file
-    packageDir = path.dirname packageFile
-    configFile = path.resolve packageDir, relativeConfigFile
-    configDir = path.dirname configFile
-    config = require configFile
-    return {config, configDir, configFile, packageFile, cached: false}
-
-# Load configuration for a transform.
-#
-# This will look for a key in package.json with configuration for your module.  Suppose you
-# write a transform called "soupify".  In your transform, you'd do something like:
-#
-#     browserifyTransformTools.loadTransformConfig "soupify",
-#         "/Users/jwalton/project/foo.js", (err, configData) ->
-#             ....
-#
-# This starts in "/Users/jwalton/project" and walks up the directory tree looking for a
-# package.json file.  Once a package.json file is located, this will check for a "soupify" key
-# in package.json.  If one does not exist, it will continue walking up the tree until it finds one
-# (the first package.json you find might be in a bower component.)
-#
-# Once the "soupify" key is found, if the value of the key is an object,
-# this will return that object.  If the value of the key is a string, this will load the
-# JSON or js file referenced by the string, and return its contents instead.
-#
-# The object returned has the following properties:
-# * `configData.config` - The configuration for the transform.
-# * `configData.configDir` - The directory the configuration was loaded from; the directory which
-#   contains package.json if that's where the config came from, or the directory which contains
-#   the file specified in package.json.  This is handy for resolving relative paths.  Note thate
-#   this field may be null if the configuration is overridden via the `configure()` function.
-# * `configData.configFile` - The file the configuration was loaded from.  Note thate
-#   this field may be null if the configuration is overridden via the `configure()` function.
-# * `configData.cached` - Since a transform is run once for each file in a project, configuration
-#   data is cached using the location of the package.json file as the key.  If this value is true,
-#   it means that data was loaded from the cache.
-#
-# Inspired by the [browserify-shim](https://github.com/thlorenz/browserify-shim) configuration
-# loader.
-#
-exports.loadTransformConfig = (transformName, file, done) ->
-    dir = path.dirname file
-
-    findConfig = (dirname) ->
-        findPackageJson dirname, (err, packageFile) ->
-            return done err if err
-
-            if !packageFile?
-                # Couldn't find configuration
-                done null, null
-            else
-                configData = getConfigFromCache transformName, packageFile
-                if configData
-                    done null, configData
-                else
-                    loadJsonAsync packageFile, (err, pkg) ->
-                        return done err if err
-
-                        config = pkg[transformName]
-                        packageDir = path.dirname packageFile
-
-                        if !config?
-                            # Didn't find the config in the package file.  Try the parent dir.
-                            parent = path.resolve packageDir, ".."
-                            if parent == packageDir
-                                # Hit the root - we're done
-                                done null, null
-                            else
-                                findConfig parent
-
-                        else
-                            # Found some configuration
-                            if typeof config is "string"
-                                # Load from an external file
-                                try
-                                    configData = loadExternalConfig packageFile, config
-                                catch err
-                                    return done err
-
-                            else
-                                configFile = packageFile
-                                configDir = packageDir
-                                configData = {config, configDir, configFile, packageFile, cached: false}
-                            storeConfigInCache transformName, packageFile, configData
-                            done null, configData
-
-    findConfig dir
-
-
-# Synchronous version of `loadTransformConfig()`.  Returns `{config, configDir}`.
-exports.loadTransformConfigSync = (transformName, file) ->
-    configData = null
-
-    dirname = path.dirname file
-
-    done = false
-    while !done
-        packageFile = findPackageJsonSync dirname
-
-        if !packageFile?
-            # Couldn't find configuration
-            configData = null
-            done = true
-
-        else
-            configData = getConfigFromCache transformName, packageFile
-
-            if configData
-                done = true
-            else
-                pkg = require packageFile
-                config = pkg[transformName]
-                packageDir = path.dirname packageFile
-
-                if !config?
-                    # Didn't find the config in the package file.  Try the parent dir.
-                    dirname = path.resolve packageDir, ".."
-                    if dirname == packageDir
-                        # Hit the root - we're done
-                        done = true
-                else
-                    # Found some configuration
-                    if typeof config is "string"
-                        # Load from an external file
-                        configData = loadExternalConfig packageFile, config
-                    else
-                        configFile = packageFile
-                        configDir = packageDir
-                        configData = {config, configDir, configFile, packageFile, cached: false}
-
-                    storeConfigInCache transformName, packageFile, configData
-                    done = true
-
-    return configData
-
-exports.clearConfigCache = ->
-    packageJsonCache = {}
-    configCache = {}
 
 # Runs a Browserify-style transform on the given file.
 #

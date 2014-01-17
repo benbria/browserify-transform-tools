@@ -3,8 +3,17 @@ path = require 'path'
 assert = require 'assert'
 
 dummyJsFile = path.resolve __dirname, "../testFixtures/testWithConfig/dummy.js"
+testDir = path.resolve __dirname, "../testFixtures/testWithConfig"
 
 describe "transformTools falafel transforms", ->
+    cwd = process.cwd()
+
+    beforeEach ->
+        process.chdir testDir
+
+    after ->
+        process.chdir cwd
+
     it "should generate a transform that uses falafel", (done) ->
         transform = transformTools.makeFalafelTransform "unyellowify", (node, opts, cb) ->
             if node.type is "ArrayExpression"
@@ -65,3 +74,18 @@ describe "transformTools falafel transforms", ->
         transformTools.runTransform transform, dummyJsFile, {content}, (err, result) ->
             assert err != null, "Expected an error from runTransform"
             done()
+
+    it "should not try to parse a json file if jsFilesOnly is true.", (done) ->
+        dummyJsonFile = path.resolve __dirname, "../testFixtures/testWithConfig/dummy.json"
+
+        transform = transformTools.makeFalafelTransform "identityify", {jsFilesOnly: true}, (args, opts, cb) ->
+            cb()
+
+        content = '{"foo": "bar"}'
+        transformTools.runTransform transform, dummyJsonFile, {content}, (err, result) ->
+            return done err if err
+            assert.equal result, content
+            done()
+
+
+
