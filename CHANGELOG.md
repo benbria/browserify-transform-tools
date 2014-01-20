@@ -1,3 +1,1 @@
-* v1.1.0: Add `setConfig()` and `configure()` methods to transforms.
-
-* v1.0.2: Include the name of the transform in error messages.
+Change log available here: https://github.com/benbria/browserify-transform-tools/wiki/Change-log
