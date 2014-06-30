@@ -12,7 +12,7 @@ Many different transforms perform certain basic functionality, such as turning t
 Installation
 ============
 
-Install with `npm install --save-dev browserify-transform-tools`.
+Install with `npm install --save browserify-transform-tools`.
 
 Creating a String Transform
 ===========================
