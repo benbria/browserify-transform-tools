@@ -29,7 +29,7 @@ module.exports = transformTools.makeStringTransform("unbluify", options,
             return done(new Error("Could not find unbluify configuration."));
         }
 
-        done null, content.replace(/blue/g, transformOptions.config.newColor);
+        done(null, content.replace(/blue/g, transformOptions.config.newColor));
     });
 ```
 
