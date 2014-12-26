@@ -4,7 +4,8 @@ path = require 'path'
 JS_EXTENSIONS = [
     ".js",
     ".coffee", ".coffee.md", ".litcoffee", # via coffeeify
-    "._js", "._coffee" # Streamline.js
+    "._js", "._coffee", # Streamline.js
+    ".jsx" # React
 ]
 
 isArray = (obj) -> Object.prototype.toString.call( obj ) == '[object Array]'
