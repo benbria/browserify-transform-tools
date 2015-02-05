@@ -50,7 +50,7 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
         transformFn = options
         options = {}
 
-    transform = (file) ->
+    transform = (file, opts) ->
         configData = if transform.configData?
             transform.configData
         else
@@ -75,8 +75,9 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
             try
                 transformOptions = {
                     file: file,
-                    configData, configData,
-                    config: configData?.config
+                    configData: configData,
+                    config: configData?.config,
+                    opts: opts
                 }
                 transformFn content, transformOptions, (err, transformed) =>
                     return handleError err if err

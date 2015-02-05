@@ -52,7 +52,7 @@ Parameters for `makeStringTransform()`:
 * `transformFn(contents, transformOptions, done)` - Function which is called to
   do the transform.  `contents` are the contents of the file.  `done(err, transformed)` is
   a callback which must be called, passing the a string with the transformed contents of the
-  file.  transformOptions consists of:
+  file.  `transformOptions` consists of:
 
   * `transformOptions.file` is the name of the file (as would be passed to a normal browserify transform.)
 
@@ -60,6 +60,8 @@ Parameters for `makeStringTransform()`:
   `loadTransformConfig` below for details on where this comes from.)
 
   * `transformOptions.config` is a copy of `transformOptions.configData.config` for convenience.
+
+  * `transformOptions.opts` is an object containing any options that have been supplied to the transform (for instance, with Browserify's `b.transform` API.)
 
 * `options.excludeExtensions` - A list of extensions which will not be processed.  e.g.
   "['.coffee', '.jade']"
