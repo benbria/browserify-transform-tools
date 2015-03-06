@@ -16,6 +16,13 @@ exports.skipFile = skipFile
 # TODO: Does this work on Windows?
 isRootDir = (filename) -> filename == path.resolve(filename, '/')
 
+merge = (a={}, b={}) ->
+    answer = {}
+    answer[key] = a[key] for key of a
+    answer[key] = b[key] for key of b
+    return answer
+
+
 # Create a new Browserify transform which reads and returns a string.
 #
 # Browserify transforms work on streams.  This is all well and good, until you want to call
@@ -51,16 +58,14 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
         options = {}
 
     transform = (file, config) ->
-        configData = if config?
-            {
-                config: config
-                cached: false
-                appliesTo: config.appliesTo
-            }
-        else if transform.configData?
+        configData = if transform.configData?
             transform.configData
         else
             loadConfig.loadTransformConfigSync transformName, file, options
+
+        if config?
+            configData ?= {config:{}}
+            configData.config = merge configData.config, config
 
         if skipFile file, configData, options then return through()
 
