@@ -50,8 +50,14 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
         transformFn = options
         options = {}
 
-    transform = (file, opts) ->
-        configData = if transform.configData?
+    transform = (file, config) ->
+        configData = if config?
+            {
+                config: config
+                cached: false
+                appliesTo: config.appliesTo
+            }
+        else if transform.configData?
             transform.configData
         else
             loadConfig.loadTransformConfigSync transformName, file, options
@@ -77,7 +83,7 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
                     file: file,
                     configData: configData,
                     config: configData?.config,
-                    opts: opts
+                    opts: configData?.config
                 }
                 transformFn content, transformOptions, (err, transformed) =>
                     return handleError err if err
@@ -281,6 +287,7 @@ exports.makeRequireTransform = (transformName, options={}, transformFn) ->
 # * `file` is the name of the file to run the transform on.
 # * `options.content` is the content of the file.  If this option is not provided, the content
 #   will be read from disk.
+# * `options.config` is configuration to pass along to the transform.
 # * `done(err, result)` will be called with the transformed input.
 #
 exports.runTransform = (transform, file, options={}, done) ->
@@ -292,7 +299,11 @@ exports.runTransform = (transform, file, options={}, done) ->
         data = ""
         err = null
 
-        throughStream = transform(file)
+        throughStream = if options.config?
+            transform(file, options.config)
+        else
+            transform(file)
+
         throughStream.on "data", (d) ->
             data += d
         throughStream.on "end", ->

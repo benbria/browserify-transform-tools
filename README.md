@@ -56,12 +56,11 @@ Parameters for `makeStringTransform()`:
 
   * `transformOptions.file` is the name of the file (as would be passed to a normal browserify transform.)
 
+  * `transformOptions.config` is the configuration for your transform, loaded either from
+    browserify or from package.json.
+
   * `transformOptions.configData` is the configuration data for the transform (see
   `loadTransformConfig` below for details on where this comes from.)
-
-  * `transformOptions.config` is a copy of `transformOptions.configData.config` for convenience.
-
-  * `transformOptions.opts` is an object containing any options that have been supplied to the transform (for instance, with Browserify's `b.transform` API.)
 
 * `options.excludeExtensions` - A list of extensions which will not be processed.  e.g.
   "['.coffee', '.jade']"

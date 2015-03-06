@@ -26,6 +26,13 @@ describe "transformTools string transforms", ->
             assert.equal result, expectedContent
             done()
 
+    it "should read content correctly", (done) ->
+        transform = transformTools.makeStringTransform "xify", (content, opts, cb) ->
+            cb null, content
+        return transformTools.runTransform transform, dummyJsFile, {content:"lala"}, (err, result) ->
+                assert.equal result, "lala"
+                done()
+
     it "should return an error when string transform returns an error", (done) ->
         transform = transformTools.makeStringTransform "unblueify", (content, opts, cb) ->
             cb new Error("foo")
@@ -46,9 +53,9 @@ describe "transformTools string transforms", ->
     it "should allow manual configuration to override existing configuration", (done) ->
         transform = transformTools.makeStringTransform "xify", (content, opts, cb) ->
             if opts.config
-                done null, "x"
+                cb null, "x"
             else
-                done null, content
+                cb null, content
 
         configuredTransform = transform.configure {foo: "x"}
 
@@ -56,6 +63,18 @@ describe "transformTools string transforms", ->
             assert.equal result, "lala"
 
             transformTools.runTransform configuredTransform, dummyJsFile, {content:"lala"}, (err, result) ->
+                assert.equal result, "x"
+                done()
+
+    it "should allow configuration passed on construction", (done) ->
+        transform = transformTools.makeStringTransform "xify", (content, opts, cb) ->
+            if opts.config
+                cb null, "x"
+            else
+                cb null, content
+
+        return transformTools.runTransform transform, dummyJsFile, {content:"lala", config: {foo: "x"}},
+            (err, result) ->
                 assert.equal result, "x"
                 done()
 

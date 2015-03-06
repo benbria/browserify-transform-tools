@@ -21,12 +21,12 @@
     "lib": "./lib"
   },
   "dependencies": {
-    "through": "~2.3.4",
-    "falafel": ">0.2.1"
+    "falafel": ">0.2.1",
+    "through": "~2.3.4"
   },
   "devDependencies": {
     "coffee-script": "1.6.3",
-    "mocha": "1.15.0",
+    "mocha": "^2.1.0",
     "browserify": "~3.14.1",
     "async": "~0.2.9"
   },
