@@ -2,7 +2,7 @@ path = require 'path'
 assert = require 'assert'
 
 browserify = require 'browserify'
-async = require 'async'
+{Promise} = require 'es6-promise'
 
 transformTools = require '../src/transformTools'
 skipFile = require '../src/skipFile'
@@ -20,49 +20,49 @@ describe "transformTools skipping files", ->
     after ->
         process.chdir cwd
 
-    verifyExtensions = (transform, includedExtensions, skippedExtensions, done) ->
+    verifyExtensions = (transform, includedExtensions, skippedExtensions) ->
         content = "this is a blue test"
         expectedContent = "this is a red test"
 
         checkRuns = (shouldRun) ->
-            (ext, done2) ->
+            (ext) -> new Promise (resolve, reject) ->
                 dummyFile = path.resolve __dirname, "../testFixtures/testWithConfig/dummy#{ext}"
                 transformTools.runTransform transform, dummyFile, {content}, (err, result) ->
-                    return done2 err if err
+                    return reject err if err
                     if shouldRun
                         assert result == expectedContent, "Should transform #{ext}"
                     else
                         assert result == content, "Should not transform #{ext}"
-                    done2()
-
-        async.each includedExtensions, checkRuns(true), (err) ->
-            return done err if err
-            async.each skippedExtensions, checkRuns(false), (err) ->
-                done err
+                    resolve()
 
 
-    it "should exclude files by extension", (done) ->
+        return Promise.all(includedExtensions.map(checkRuns(true)))
+        .then ->
+            Promise.all(skippedExtensions.map(checkRuns(false)))
+
+
+    it "should exclude files by extension", ->
         transform = transformTools.makeStringTransform "unblueify", {
             excludeExtensions: ['.json']
         }, (content, opts, cb) ->
             cb null, content.replace(/blue/g, 'red');
-        verifyExtensions transform, ['.js'], ['.json'], done
+        verifyExtensions transform, ['.js'], ['.json']
 
-    it "should include files by extension", (done) ->
+    it "should include files by extension", ->
         transform = transformTools.makeStringTransform "unblueify", {
             includeExtensions: ['.js']
         }, (content, opts, cb) ->
             cb null, content.replace(/blue/g, 'red');
-        verifyExtensions transform, ['.js'], ['.json'], done
+        verifyExtensions transform, ['.js'], ['.json']
 
-    it "should include files by extension, with multiple extensions", (done) ->
+    it "should include files by extension, with multiple extensions", ->
         transform = transformTools.makeStringTransform "unblueify", {
             includeExtensions: ['.js', '.coffee']
         }, (content, opts, cb) ->
             cb null, content.replace(/blue/g, 'red');
-        verifyExtensions transform, ['.js'], ['.json'], done
+        verifyExtensions transform, ['.js'], ['.json']
 
-    it "should respect includeExtensions overrides from config from transform", (done) ->
+    it "should respect includeExtensions overrides from config from transform", ->
         transform = transformTools.makeStringTransform "unblueify", {
             includeExtensions: ['.js']
         }, (content, opts, cb) ->
@@ -71,7 +71,7 @@ describe "transformTools skipping files", ->
         transform = transform.configure {
             appliesTo: includeExtensions: ['.json']
         }
-        verifyExtensions transform, ['.json'], ['.js'], done
+        verifyExtensions transform, ['.json'], ['.js']
 
     it "should respect 'includeExtensions' overrides from config", ->
         options = {
