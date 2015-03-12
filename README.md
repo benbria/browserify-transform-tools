@@ -1,4 +1,4 @@
-This package contains tools for helping you write [transforms](https://github.com/substack/node-browserify#btransformtr) for [browserify](https://github.com/substack/node-browserify).
+This package contains tools for helping you write [transforms](https://github.com/substack/node-browserify#browserifytransform) for [browserify](https://github.com/substack/node-browserify).
 
 Many different transforms perform certain basic functionality, such as turning the contents of a stream into a string, or loading configuration from package.json.  This package contains helper methods to perform these common tasks, so you don't have to write them over and over again:
 
