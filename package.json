@@ -1,6 +1,6 @@
 {
   "name": "browserify-transform-tools",
-  "version": "1.3.3",
+  "version": "1.4.0",
   "description": "Utilities for writing browserify transforms.",
   "main": "./lib/transformTools.js",
   "repository": {
