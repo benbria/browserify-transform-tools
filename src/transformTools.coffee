@@ -90,7 +90,7 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
                     config: configData?.config,
                     opts: configData?.config
                 }
-                transformFn content, transformOptions, (err, transformed) =>
+                transformFn.call @, content, transformOptions, (err, transformed) =>
                     return handleError err if err
                     @queue String(transformed)
                     @queue null
