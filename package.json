@@ -26,6 +26,7 @@
   },
   "devDependencies": {
     "browserify": "^10.1.0",
+    "chai": "^2.3.0",
     "coffee-coverage": "^0.5.4",
     "coffee-script": "^1.9.2",
     "coveralls": "^2.11.2",

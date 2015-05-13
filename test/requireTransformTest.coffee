@@ -2,6 +2,7 @@ transformTools = require '../src/transformTools'
 browserify = require 'browserify'
 path = require 'path'
 assert = require 'assert'
+{expect} = require 'chai'
 
 dummyJsFile = path.resolve __dirname, "../testFixtures/testWithConfig/dummy.js"
 testDir = path.resolve __dirname, "../testFixtures/testWithConfig"
@@ -160,7 +161,7 @@ describe "transformTools require transforms", ->
             cb new Error("foo")
 
         transformTools.runTransform transform, dummyJsFile, {content:"require('boo');"}, (err, result) ->
-            assert.equal err?.message, "foo (while requireTransform was processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
+            expect(err.message).to.match /foo \(while requireTransform was processing .*\/testFixtures\/testWithConfig\/dummy\.js\)/
             done()
 
     it "should return an error when require transform throws an error", (done) ->
@@ -168,7 +169,7 @@ describe "transformTools require transforms", ->
             throw new Error("foo")
 
         transformTools.runTransform transform, dummyJsFile, {content:"require('boo');"}, (err, result) ->
-            assert.equal err?.message, "foo (while requireTransform was processing /Users/jwalton/benbria/browserify-transform-tools/testFixtures/testWithConfig/dummy.js)"
+            expect(err.message).to.match /foo \(while requireTransform was processing .*\/testFixtures\/testWithConfig\/dummy\.js\)/
             done()
 
     it "should gracefully handle a syntax error", (done) ->
