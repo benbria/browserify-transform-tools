@@ -1,4 +1,7 @@
-[![Dependency Status](https://david-dm.org/benbria/browserify-transform-tools.svg)](https://david-dm.org/benbria/browserify-transform-tools) [![devDependency Status](https://david-dm.org/benbria/browserify-transform-tools/dev-status.svg)](https://david-dm.org/benbria/browserify-transform-tools#info=devDependencies)
+[![Build Status](https://travis-ci.org/benbria/browserify-transform-tools.svg)](https://travis-ci.org/benbria/browserify-transform-tools)
+[![Coverage Status](https://coveralls.io/repos/benbria/browserify-transform-tools/badge.svg)](https://coveralls.io/r/benbria/browserify-transform-tools)
+[![Dependency Status](https://david-dm.org/benbria/browserify-transform-tools.svg)](https://david-dm.org/benbria/browserify-transform-tools)
+[![devDependency Status](https://david-dm.org/benbria/browserify-transform-tools/dev-status.svg)](https://david-dm.org/benbria/browserify-transform-tools#info=devDependencies)
 
 This package contains tools for helping you write [transforms](https://github.com/substack/node-browserify#browserifytransform) for [browserify](https://github.com/substack/node-browserify).
 

@@ -26,13 +26,16 @@
   },
   "devDependencies": {
     "browserify": "^10.1.0",
+    "coffee-coverage": "^0.5.4",
     "coffee-script": "^1.9.2",
+    "coveralls": "^2.11.2",
     "es6-promise": "^2.1.1",
+    "istanbul": "^0.3.14",
     "mocha": "^2.2.4"
   },
   "scripts": {
-    "test": "mocha test",
-    "prepublish": "coffee -c -o lib src && mocha test",
+    "test": "mocha && istanbul report text-summary lcov",
+    "prepublish": "coffee -c -o lib src && npm test",
     "build": "coffee -c -o lib src"
   }
 }
