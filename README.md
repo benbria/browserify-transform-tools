@@ -3,6 +3,8 @@
 [![Dependency Status](https://david-dm.org/benbria/browserify-transform-tools.svg)](https://david-dm.org/benbria/browserify-transform-tools)
 [![devDependency Status](https://david-dm.org/benbria/browserify-transform-tools/dev-status.svg)](https://david-dm.org/benbria/browserify-transform-tools#info=devDependencies)
 
+[![NPM](https://nodei.co/npm/browserify-transform-tools.png?downloads=true&downloadRank=true&stars=true)](https://nodei.co/npm/browserify-transform-tools/)
+
 This package contains tools for helping you write [transforms](https://github.com/substack/node-browserify#browserifytransform) for [browserify](https://github.com/substack/node-browserify).
 
 Many different transforms perform certain basic functionality, such as turning the contents of a stream into a string, or loading configuration from package.json.  This package contains helper methods to perform these common tasks, so you don't have to write them over and over again:
