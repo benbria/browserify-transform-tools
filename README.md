@@ -79,7 +79,7 @@ Parameters for `makeStringTransform()`:
 * `options.jsFilesOnly` - If set true, then your transform will only run on "javascript" files.
   This is handy for Falafel and Require transforms, defined below.  This is equivalent to
   passing
-  `includeExtensions: [".js", ".coffee", ".coffee.md", ".litcoffee", "._js", "._coffee"]`.
+  `includeExtensions: [".js", ".coffee", ".coffee.md", ".litcoffee", "._js", "._coffee", ".jsx", ".es", ".es6"]`.
 
 Creating a Falafel Transform
 ============================
