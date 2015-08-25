@@ -5,7 +5,8 @@ JS_EXTENSIONS = [
     ".js",
     ".coffee", ".coffee.md", ".litcoffee", # via coffeeify
     "._js", "._coffee", # Streamline.js
-    ".jsx" # React
+    ".jsx", # React
+    ".es", ".es6" # ES6
 ]
 
 isArray = (obj) -> Object.prototype.toString.call( obj ) == '[object Array]'
