@@ -22,6 +22,12 @@ merge = (a={}, b={}) ->
     answer[key] = b[key] for key of b
     return answer
 
+clone = (a) ->
+    if !a then return a
+    answer = {}
+    answer[key] = a[key] for key of a
+    return answer
+
 
 # Create a new Browserify transform which reads and returns a string.
 #
@@ -64,7 +70,7 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
             loadConfig.loadTransformConfigSync transformName, file, options
 
         if config?
-            configData ?= {config:{}}
+            configData = clone(configData) ? {config:{}}
             configData.config = merge configData.config, config
 
         if skipFile file, configData, options then return through()
