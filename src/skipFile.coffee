@@ -19,7 +19,7 @@ module.exports = (file, configData={}, options={}) ->
     file = path.resolve file
     skip = false
 
-    appliesTo = configData.appliesTo
+    appliesTo = configData.appliesTo ? configData.config?.appliesTo
 
     # If there's no appliesTo, then use options.
     if !appliesTo? or (
@@ -69,4 +69,3 @@ module.exports = (file, configData={}, options={}) ->
         if !includeThisFile then skip = true
 
     return skip
-
