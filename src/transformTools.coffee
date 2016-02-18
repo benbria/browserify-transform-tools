@@ -73,6 +73,10 @@ exports.makeStringTransform = (transformName, options={}, transformFn) ->
             configData = clone(configData) ? {config:{}}
             configData.config = merge configData.config, config
 
+            if configData.config.appliesTo
+                configData.appliesTo = configData.config.appliesTo
+                delete configData.config.appliesTo
+
         if skipFile file, configData, options then return through()
 
         # Read the file contents into `content`
