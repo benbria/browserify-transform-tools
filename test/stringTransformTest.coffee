@@ -79,3 +79,26 @@ describe "transformTools string transforms", ->
                 assert.equal result, "x"
                 done()
 
+    it "should allow file configuration passed on construction", (done) ->
+        transform = transformTools.makeStringTransform "xify", (content, opts, cb) ->
+            if opts.configData.appliesTo
+                cb null, "x"
+            else
+                cb null, content
+
+        return transformTools.runTransform transform, dummyJsFile, {content:"lala", config: {foo: "x", appliesTo:{ includeExtensions:['.js', '.spec']}}},
+            (err, result) ->
+                assert.equal result, "x"
+                done()
+
+    it "should clean up file configuration when passed on construction", (done) ->
+        transform = transformTools.makeStringTransform "xify", (content, opts, cb) ->
+            if opts.config.foo and !opts.config.appliesTo
+                cb null, "x"
+            else
+                cb null, content
+
+        return transformTools.runTransform transform, dummyJsFile, {content:"lala", config: {foo: "x", appliesTo:{ includeExtensions:['.js', '.spec']}}},
+            (err, result) ->
+                assert.equal result, "x"
+                done()

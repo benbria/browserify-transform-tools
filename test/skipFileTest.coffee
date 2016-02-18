@@ -84,19 +84,7 @@ describe "transformTools skipping files", ->
         assert skipFile("foo.js", configData, options), "Should skip .js files"
         assert !skipFile("foo.json", configData, options), "Should not skip .json files"
 
-    it "should respect 'includeExtensions' overrides from config", ->
-        options = {
-            appliesTo: includeExtensions: ['.js']
-        }
-        configData = {
-            config: {
-                appliesTo: includeExtensions: ['.json']
-            }
-        }
-        assert skipFile("foo.js", configData, options), "Should skip .js files"
-        assert !skipFile("foo.json", configData, options), "Should not skip .json files"
-
-    it "should respect 'exclueExtensions' overrides from config", ->
+    it "should respect 'excludeExtensions' overrides from config", ->
         options = {
             appliesTo: includeExtensions: ['.js']
 
