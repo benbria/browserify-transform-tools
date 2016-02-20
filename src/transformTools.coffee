@@ -172,6 +172,7 @@ exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
     falafelOptions = options.falafelOptions ? {}
 
     transform = exports.makeStringTransform transformName, options, (content, transformOptions, done) ->
+        tr = @
         transformErr = null
         pending = 1 # We'll decrement this to zero at the end to prevent premature call of `done`.
         transformed = null
@@ -191,7 +192,7 @@ exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
         transformed = falafel content, falafelOptions, (node) ->
             pending++
             try
-                transformFn node, transformOptions, transformCb
+                transformFn.call tr, node, transformOptions, transformCb
             catch err
                 transformCb err
 
@@ -268,7 +269,7 @@ exports.makeRequireTransform = (transformName, options={}, transformFn) ->
             else
                 args = (arg.source() for arg in node.arguments)
 
-            transformFn args, transformOptions, (err, transformed) ->
+            transformFn.call @, args, transformOptions, (err, transformed) ->
                 return done err if err
                 if transformed? then node.update(transformed)
                 done()
