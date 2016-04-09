@@ -235,6 +235,9 @@ exports.makeFalafelTransform = (transformName, options={}, transformFn) ->
 # `transformName`, `options.excludeExtensions`, `options.includeExtensions`, `options.jsFilesOnly`,
 # and `tranformOptions` are the same as for `makeStringTransform()`.
 #
+# `options.requireOptions.aliases` is an optional parameter which can be a string or an array of strings.
+# These strings are also taken to evaluate the transformFn as aliases for "require".
+#
 # By default, makeRequireTransform will attempt to evaluate each "require" parameters.
 # makeRequireTransform can handle variabls `__filename`, `__dirname`, `path`, and `join` (where
 # `join` is treated as `path.join`) as well as any basic JS expressions.  If the argument is
@@ -247,11 +250,20 @@ exports.makeRequireTransform = (transformName, options={}, transformFn) ->
         options = {}
 
     evaluateArguments = options.evaluateArguments ? true
+    
+    requireOptions = options.requireOptions ? {}
+    requireAliases = []
+    if requireOptions.aliases?
+        if Array.isArray(requireOptions.aliases) || {}.toString.call(requireOptions.aliases) is '[object Array]'
+            requireAliases = requireOptions.aliases
+        else if typeof requireOptions.aliases is 'string'
+                requireAliases = [requireOptions.aliases]
+    requireAliases.push 'require'
 
     transform = exports.makeFalafelTransform transformName, options, (node, transformOptions, done) ->
         if (node.type is 'CallExpression' and node.callee.type is 'Identifier' and
-        node.callee.name is 'require')
-            # Parse arguemnts to calls to `require`.
+        node.callee.name in requireAliases)
+            # Parse arguments to calls to a requireAlias. Defaults to `require`.
             if evaluateArguments
                 # Based on https://github.com/ForbesLindesay/rfileify.
                 dirname = path.dirname(transformOptions.file)

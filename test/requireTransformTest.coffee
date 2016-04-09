@@ -114,6 +114,51 @@ describe "transformTools require transforms", ->
             assert.equal result, expectedContent
             done()
 
+    it "should accept an array of aliases for require", (done) ->
+        transform = transformTools.makeRequireTransform "requireTransform", {requireOptions: {aliases: ['foo', 'proxyquire']}}, (args, opts, cb) ->
+            if args[0] is "bar"
+                cb null, "require('baz')"
+            else if args[0] is "foobar"
+                cb null, "require('qux')"
+            else
+                cb()
+
+        content = """
+            foo('bar');
+            proxyquire('foobar');
+            """
+        expectedContent = """
+            require('baz');
+            require('qux');
+            """
+        transformTools.runTransform transform, dummyJsFile, {content}, (err, result) ->
+            return done err if err
+            assert.equal result, expectedContent
+            done()
+
+
+    it "should accept a string as alias for require", (done) ->
+        transform = transformTools.makeRequireTransform "requireTransform", {requireOptions: {aliases: 'foo'}}, (args, opts, cb) ->
+            if args[0] is "bar"
+                cb null, "require('baz')"
+            else if args[0] is "foobar"
+                cb null, "require('qux')"
+            else
+                cb()
+
+        content = """
+            foo('bar');
+            proxyquire('foobar');
+            """
+        expectedContent = """
+            require('baz');
+            proxyquire('foobar');
+            """
+        transformTools.runTransform transform, dummyJsFile, {content}, (err, result) ->
+            return done err if err
+            assert.equal result, expectedContent
+            done()
+
     it "should optionally not handle simple expressions", (done) ->
         transform = transformTools.makeRequireTransform "requireTransform",
             {evaluateArguments: false}, (args, opts, cb) ->

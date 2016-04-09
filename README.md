@@ -122,6 +122,8 @@ This will take all calls to `require("foo")` and transform them to `require('bar
 
 Note that `makeRequireTransform` expects your function to return the complete `require(...)` call.  This makes it possible to write require transforms which will, for example, inline resources.
 
+If you want to evaluate not just `require` calls but also other aliases you can pass in an optional attribute `requireOptions.aliases`. This attribute can be a string or an array of strings. This functionality can become handy for example if you plan on using [aliasify](https://github.com/benbria/aliasify) with [proxyquireify](https://github.com/thlorenz/proxyquireify). In this case just pass in "proxyquire" as `requireOptions.aliases` and all your `proxyquire("module")` calls can also get evaluated.
+
 Again, all other options you can pass to `makeStringTransform` are valid here, too.
 
 Loading Configuration
