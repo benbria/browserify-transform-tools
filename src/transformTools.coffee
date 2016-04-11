@@ -252,21 +252,7 @@ exports.makeRequireTransform = (transformName, options={}, transformFn) ->
         if (node.type is 'CallExpression' and node.callee.type is 'Identifier' and
         node.callee.name is 'require')
             # Parse arguemnts to calls to `require`.
-            if evaluateArguments
-                # Based on https://github.com/ForbesLindesay/rfileify.
-                dirname = path.dirname(transformOptions.file)
-                varNames = ['__filename', '__dirname', 'path', 'join']
-                vars = [transformOptions.file, dirname, path, path.join]
-
-                args = node.arguments.map (arg) ->
-                    t = "return #{arg.source()}"
-                    try
-                        return Function(varNames, t).apply(null, vars)
-                    catch err
-                        # Can't evaluate the arguemnts.  Return the raw source.
-                        return arg.source()
-            else
-                args = (arg.source() for arg in node.arguments)
+            args = evaluateFunctionArgs evaluateArguments, transformOptions, node
 
             transformFn args, transformOptions, (err, transformed) ->
                 return done err if err
@@ -291,6 +277,82 @@ exports.makeRequireTransform = (transformName, options={}, transformFn) ->
     #
     transform.configure = (config, configOptions = {}) ->
         answer = exports.makeRequireTransform transformName, options, transformFn
+        answer.setConfig config, configOptions
+        return answer
+
+    return transform
+
+# Create a new Browserify transform that modifies arbitrary function calls.
+#
+# The resulting transform will call `transformFn({functionName: [functionName], args: [orderedFunctionArgs]}, tranformOptions, cb)` for every
+# given function alias in a file.  transformFn should call `cb(null, str)` with a string which will replace the
+# entire function call.
+#
+# Exmaple:
+#
+#     makeFunctionTransform "xify", {functionNames: ["baz"]}, (functionParams, cb) ->
+#         cb null, functionParams.name + "('x" + functionParams.args[0] + "')"
+#
+# would transform calls like `baz("foo")` into `baz("xfoo")`.
+#
+# `transformName`, `options.excludeExtensions`, `options.includeExtensions`, `options.jsFilesOnly`,
+# and `tranformOptions` are the same as for `makeStringTransform()`.
+#
+# `options.functionNames` is an optional parameter which can be a string or an array of strings.
+# These strings are taken to identify function occurences in the code. If nothing is passed as a function name
+# makeFunctionTransform falls back to `require()` calls.
+#
+# By default, makeFunctionTransform will attempt to evaluate each "require" parameters.
+# makeFunctionTransform can handle variabls `__filename`, `__dirname`, `path`, and `join` (where
+# `join` is treated as `path.join`) as well as any basic JS expressions.  If the argument is
+# too complicated to parse, then makeFunctionTransform will return the source for the argument.
+# You can disable parsing by passing `options.evaluateArguments` as false.
+#
+exports.makeFunctionTransform = (transformName, options={}, transformFn) ->
+    if !transformFn?
+        transformFn = options
+        options = {}
+
+    evaluateArguments = options.evaluateArguments ? true
+
+    functionNames = []
+    if options.functionNames?
+        if Array.isArray(options.functionNames) || {}.toString.call(options.functionNames) is '[object Array]'
+            functionNames = options.functionNames
+        else if typeof options.functionNames is 'string'
+            functionNames = [options.functionNames]
+    if functionNames.length is 0
+        functionNames.push 'require'
+
+    transform = exports.makeFalafelTransform transformName, options, (node, transformOptions, done) ->
+        if (node.type is 'CallExpression' and node.callee.type is 'Identifier' and
+          node.callee.name in functionNames)
+            # Parse arguments to calls to a given function name.
+            args = evaluateFunctionArgs evaluateArguments, transformOptions, node
+
+            transformFn {name: node.callee.name, args: args}, transformOptions, (err, transformed) ->
+                return done err if err
+                if transformed? then node.update(transformed)
+                done()
+        else
+            done()
+
+    # Called to manually pass configuration data to the transform.  Configuration passed in this
+    # way will override configuration loaded from package.json.
+    #
+    # * `config` is the configuration data.
+    # * `configOptions.configFile` is the file that configuration data was loaded from.  If this
+    #   is specified and `configOptions.configDir` is not specified, then `configOptions.configDir`
+    #   will be inferred from the configFile's path.
+    # * `configOptions.configDir` is the directory the configuration was loaded from.  This is used
+    #   by some transforms to resolve relative paths.
+    #
+    # Returns a new transform that uses the configuration:
+    #
+    #     myTransform = require('myTransform').configure(...)
+    #
+    transform.configure = (config, configOptions = {}) ->
+        answer = exports.makeFunctionTransform transformName, options, transformFn
         answer.setConfig config, configOptions
         return answer
 
@@ -336,3 +398,22 @@ exports.runTransform = (transform, file, options={}, done) ->
         fs.readFile file, "utf-8", (err, content) ->
             return done err if err
             doTransform content
+
+evaluateFunctionArgs = (evaluateArguments, transformOptions, node) ->
+    if evaluateArguments
+        # Based on https://github.com/ForbesLindesay/rfileify.
+        dirname = path.dirname(transformOptions.file)
+        varNames = ['__filename', '__dirname', 'path', 'join']
+        vars = [transformOptions.file, dirname, path, path.join]
+
+        args = node.arguments.map (arg) ->
+            t = "return #{arg.source()}"
+            try
+                return Function(varNames, t).apply(null, vars)
+            catch err
+                # Can't evaluate the arguments.  Return the raw source.
+                return arg.source()
+    else
+        args = (arg.source() for arg in node.arguments)
+        
+    args
