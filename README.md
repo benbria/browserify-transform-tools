@@ -124,6 +124,33 @@ Note that `makeRequireTransform` expects your function to return the complete `r
 
 Again, all other options you can pass to `makeStringTransform` are valid here, too.
 
+Creating a Function Transform
+============================
+
+These transforms are focused on transforming arbitrary function calls:
+
+```JavaScript
+transform = transformTools.makeRequireTransform("requireTransform",
+    {evaluateArguments: true, functionNames: ["foobar"]},
+    function(functionParams, opts, cb) {
+        if (functionParams.args[0].value === "foo") {
+            return cb(null, functionParams.name + "('bar')");
+        } else {
+            return cb();
+        }
+    });
+```
+
+This will take all calls to `foobar("foo")` and transform them to `foobar('bar')`.  Note that makeFunctionTransform can parse many simple expressions, so the above would succesfully parse `foobar("f" + "oo")`, for example.  Any expression involving core JavaScript, `__filename`, `__dirname`, `path`, and `join` (where join is an alias for `path.join`) can be parsed.  Setting the `evaluateArguments` option to false will disable this behavior, in which case the source code for everything inside the ()s will be returned.
+
+Note that `makeFunctionTransform` expects your function to return the complete `[functionName](...)` call.  This makes it possible to write function transforms which will, for example, inline resources.
+
+The option `functionNames` can either be a string or an array of strings. If no functionName is provided `makeFunctionTransform` fallbacks to `require()` calls.
+
+The `functionParams` object which is passed to the given transform function has 2 attributes. The first one is `name` which is the function name The second one is `args` and is an ordered array of the function args. Each entry consists of `value` and `type`. Type can be one of these values: `Literal, Identifier, FunctionExpression, ObjectExpression, ArrayExpression`.
+
+Again, all other options you can pass to `makeStringTransform` are valid here, too.
+
 Loading Configuration
 =====================
 
