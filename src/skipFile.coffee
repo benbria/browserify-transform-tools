@@ -6,7 +6,8 @@ JS_EXTENSIONS = [
     ".coffee", ".coffee.md", ".litcoffee", # via coffeeify
     "._js", "._coffee", # Streamline.js
     ".jsx", # React
-    ".es", ".es6" # ES6
+    ".es", ".es6", # ES6
+    ".vue" # vue single file components
 ]
 
 isArray = (obj) -> Object.prototype.toString.call( obj ) == '[object Array]'
