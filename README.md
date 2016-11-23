@@ -130,7 +130,7 @@ Creating a Function Transform
 These transforms are focused on transforming arbitrary function calls:
 
 ```JavaScript
-transform = transformTools.makeRequireTransform("requireTransform",
+transform = transformTools.makeFunctionTransform("requireTransform",
     {evaluateArguments: true, functionNames: ["foobar"]},
     function(functionParams, opts, cb) {
         if (functionParams.args[0].value === "foo") {
