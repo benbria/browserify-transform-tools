@@ -21,6 +21,16 @@ module.exports = (file, configData={}, options={}) ->
 
     appliesTo = configData.appliesTo
 
+    # If the configData is from Windows command line, the array should be read from the '._' property. (https://www.npmjs.com/package/minimist)
+    if appliesTo?.includeExtensions?._? and isArray(appliesTo.includeExtensions._)
+        appliesTo.includeExtensions = appliesTo.includeExtensions._
+
+    if appliesTo?.excludeExtensions?._? and isArray(appliesTo.excludeExtensions._)
+        appliesTo.excludeExtensions = appliesTo.excludeExtensions._
+
+    if appliesTo?.files?._? and isArray(appliesTo.files._)
+        appliesTo.files = appliesTo.files._
+
     # If there's no appliesTo, then use options.
     if !appliesTo? or (
         !appliesTo.includeExtensions? and
